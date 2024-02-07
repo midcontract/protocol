@@ -1,0 +1,37 @@
+[fmt]
+line_length = 120
+tab_width = 2
+bracket_spacing = false
+int_types = 'long'
+quote_style = 'single'
+number_underscore = 'thousands'
+multiline_func_header = 'params_first'
+sort_imports = true
+
+[profile.default]
+solc_version = '0.8.24'
+src = 'chain/evm'
+test = 'chain/evm/test'
+out = 'out'
+libs = ['node_modules']
+optimizer_runs = 10_000
+remappings = [
+  "ds-test/=node_modules/ds-test/src/",
+  "@openzeppelin/=node_modules/@openzeppelin/contracts/",
+  "@forge-std/=node_modules/forge-std/src/",
+]
+
+[profile.optimized]
+via_ir = true
+out = 'out-via-ir'
+
+[profile.test]
+via_ir = true
+out = 'out-via-ir'
+src = 'chain/evm/test'
+
+[fuzz]
+runs = 1000
+
+[rpc_endpoints]
+blast = "${BLAST_RPC}"

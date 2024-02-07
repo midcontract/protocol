@@ -1,0 +1,24 @@
+# General
+yarn-error.log
+node_modules
+.DS_STORE
+.vscode
+.idea
+
+# Foundry files
+cache
+out-via-ir
+remappings.txt
+*.abi.json
+
+# Config files
+.env
+
+# Avoid ignoring gitkeep
+!/**/.gitkeep
+
+# Keep the latest deployment only
+broadcast/*/*/*
+
+# Out dir
+out

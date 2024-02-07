@@ -1,0 +1,37 @@
+name: Canary Release
+
+on: workflow_dispatch
+
+jobs:
+  export:
+    name: Generate Interfaces And Contracts
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          registry-url: 'https://registry.npmjs.org'
+          node-version: 20.x
+          cache: 'yarn'
+
+      - name: Install dependencies
+        run: yarn --frozen-lockfile --network-concurrency 1
+
+      - name: Build project
+        run: yarn build
+
+      - name: Update version
+        run: yarn version:canary
+
+      - name: Publish to NPM
+        run: npm publish --access public --tag canary
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

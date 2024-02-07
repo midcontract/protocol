@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -o errexit
+
+. "$(dirname "$0")/_/husky.sh"
+
+if [[ -n $1 ]]; then
+  npx --no-install commitlint --edit $1
+fi

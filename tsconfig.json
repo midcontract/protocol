@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./sdk/*"]
+    },
+    "target": "ESNext",
+    "sourceMap": false,
+    "noEmit": true,
+
+    // React.js JSX settings.
+    "jsx": "react",
+    "jsxFactory": "React.createElement",
+    "jsxFragmentFactory": "React.Fragment",
+
+    // Module settings.
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "resolveJsonModule": true,
+
+    // Strictness and quality settings.
+    "alwaysStrict": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "strict": true,
+    "verbatimModuleSyntax": true,
+
+    // Type-checking settings.
+    "lib": ["ESNext", "DOM"],
+    "skipDefaultLibCheck": true,
+    "skipLibCheck": true,
+    "useDefineForClassFields": true,
+    "types": ["vite/client", "node"],
+  },
+  "include": ["sdk"],
+  "exclude": ["**/*.test.ts", "node_modules", ".history/**"],
+}

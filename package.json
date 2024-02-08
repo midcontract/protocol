@@ -1,63 +1,138 @@
 {
   "name": "@midcontract/protocol",
-  "version": "1.0.0-rc.0",
-  "description": "Crypto payment protocol",
+  "version": "1.0.0",
+  "description": "Crypto payment protocol with escrow",
+  "keywords": [
+    "payment",
+    "crypto",
+    "escrow",
+    "midcontract"
+  ],
   "homepage": "https://github.com/midcontract/protocol",
+  "bugs": "https://github.com/midcontract/protocol/issues",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/midcontract/protocol.git"
   },
   "license": "MIT",
-  "author": "Midcontract",
+  "author": {
+    "name": "Midcontract",
+    "url": "https://www.midcontract.com/"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/midcontract-protocol.cjs",
+      "import": "./dist/midcontract-protocol.mjs"
+    },
+    "./dist/": {
+      "import": "./dist/",
+      "require": "./dist/"
+    }
+  },
+  "main": "./dist/midcontract-protocol.cjs",
+  "module": "./dist/midcontract-protocol.mjs",
+  "types": "./dist/index.d.ts",
   "files": [
-    "chain/evm/Greeter.abi.json",
-    "chain/evm/IGreeter.sol"
+    "dist/**/*",
+    "LICENSE",
+    "README.md"
   ],
   "scripts": {
-    "build": "forge build && yarn extract:abi",
+    "build": "rimraf build/**/* && pnpm build:chain && pnpm build:sdk",
+    "build:abi": "echo \"export const escrow = $(jq '.abi' out/Escrow.sol/Escrow.json) as const\" > sdk/abi/Escrow.ts",
+    "build:chain": "pnpm build:remap && forge build && pnpm build:abi",
     "build:optimized": "FOUNDRY_PROFILE=optimized forge build",
-    "canary": "yarn build && yarn version:canary && npm publish --access public --tag canary",
-    "coverage": "forge coverage --match-contract Unit",
-    "deploy:blast": "bash -c 'source .env && forge script DeployBlast --rpc-url $BLAST_RPC --broadcast --private-key $BLAST_DEPLOYER_PK --verify --etherscan-api-key $ETHERSCAN_API_KEY'",
-    "deploy:sepolia": "bash -c 'source .env && forge script DeploySepolia --rpc-url $SEPOLIA_RPC --broadcast --private-key $SEPOLIA_DEPLOYER_PK --verify --etherscan-api-key $ETHERSCAN_API_KEY'",
-    "extract:abi": "echo 'TODO extract:abi'",
-    "fix": "sort-package-json && forge fmt && yarn lint:sol-tests --fix && yarn lint:sol-logic --fix",
-    "postinstall": "forge remappings > remappings.txt",
-    "lint": "yarn lint:sol-tests && yarn lint:sol-logic && forge fmt --check",
-    "lint:commit": "commitlint",
-    "lint:natspec": "natspec-smells --include 'chain/evm/contract'",
+    "build:remap": "forge remappings > remappings.txt",
+    "build:sdk": "tsc && vite build && pnpm build:types",
+    "build:types": "npx dts-bundle-generator --silent --no-check --out-file dist/index.d.ts sdk/index.ts",
+    "canary": "pnpm canary:version && npm publish --access public --tag canary",
+    "canary:version": "pnpm version --new-version $(jq -r .version package.json)-$(git log -n 1 --pretty=format:%h) --no-git-tag-version",
+    "deploy:blast": "source .env && forge script Deployment --broadcast --rpc-url $BLAST_RPC --private-key $BLAST_DEPLOYER_PK --verifier-url $BLAST_VERIFIER_URL --etherscan-api-key $BLAST_ETHERSCAN_API_KEY",
+    "deploy:local": "source .env.test && forge script Testing --broadcast --rpc-url $RPC_URL --private-key $DEPLOYER_PK",
+    "deploy:sepolia": "source .env && forge script Deployment --broadcast --rpc-url $SEPOLIA_RPC --private-key $SEPOLIA_DEPLOYER_PK --verify --etherscan-api-key $ETHERSCAN_API_KEY",
+    "dev": "vite --host",
+    "docs:sdk": "typedoc sdk/index.ts",
+    "fix": "sort-package-json && forge fmt && pnpm lint:sol-tests --fix && pnpm lint:sol-logic --fix && pnpm fix:sdk",
+    "fix:sdk": "eslint 'sdk/**/*.{ts,json}' --fix && prettier 'sdk/**/*.{ts,json}' --write",
+    "format": "npm run format:scripts && npm run format:styles",
+    "lint": "pnpm lint:chain && pnpm lint:sdk",
+    "lint:chain": "pnpm lint:sol-tests && pnpm lint:sol-logic && forge fmt --check",
+    "lint:sdk": "eslint 'sdk/**/*.{ts,json}'",
     "lint:sol-logic": "solhint -c .solhint.json 'chain/evm/contract/**/*.sol'",
-    "lint:sol-tests": "solhint -c .solhint.tests.json 'chain/evm/test/**/*.sol'",
-    "pre-commit": "yarn build && lint-staged",
-    "prepare": "husky install",
-    "test": "forge test -vvv",
-    "test:integration": "forge test --match-contract Integration -vvv",
-    "test:unit": "forge test --match-contract Unit -vvv",
-    "test:unit:deep": "FOUNDRY_FUZZ_RUNS=5000 yarn test:unit",
-    "version:canary": "yarn version --new-version $(jq -r .version package.json)-$(git log -n 1 --pretty=format:%h) --no-git-tag-version"
-  },
-  "commitlint": {
-    "extends": [
-      "./@commitlint/config-conventional"
-    ]
+    "lint:sol-tests": "solhint -c .solhint.tests.json 'chain/evm/{test,script}/**/*.sol'",
+    "lint:styles": "stylelint ./**/*.{css,scss}",
+    "net:down": "docker compose down --volumes",
+    "net:reset": "pnpm net:down && pnpm net:start",
+    "net:start": "docker compose up --detach && pnpm deploy:local",
+    "net:stop": "docker compose stop",
+    "pre-commit": "pnpm build && lint-staged",
+    "test": "pnpm test:chain && pnpm test:sdk",
+    "test:chain": "forge test -vvv",
+    "test:chain:coverage": "forge coverage --match-contract Unit",
+    "test:chain:integration": "forge test --match-contract Integration -vvv",
+    "test:chain:unit": "forge test --match-contract Unit -vvv",
+    "test:chain:unit:deep": "FOUNDRY_FUZZ_RUNS=5000 pnpm test:unit",
+    "test:sdk": "vitest",
+    "test:sdk:coverage": "vitest --coverage --dir sdk",
+    "ts-node": "ts-node"
   },
   "lint-staged": {
-    "*.{js,css,md,ts,sol}": "forge fmt",
-    "*.sol": "solhint --fix 'chain/**/*.sol",
+    "*.{sol}": "forge fmt",
+    "chain/evm/contract/**/*.sol": "pnpm lint:sol-logic --fix",
+    "chain/evm/{script,test}/**/*.sol": "pnpm lint:sol-tests --fix",
     "package.json": "sort-package-json"
   },
+  "prettier": {
+    "arrowParens": "avoid",
+    "bracketSameLine": false,
+    "bracketSpacing": true,
+    "endOfLine": "auto",
+    "jsxSingleQuote": false,
+    "plugins": [
+      "prettier-plugin-solidity"
+    ],
+    "printWidth": 120,
+    "quoteProps": "as-needed",
+    "semi": true,
+    "singleAttributePerLine": false,
+    "singleQuote": false,
+    "tabWidth": 2,
+    "trailingComma": "es5",
+    "useTabs": false
+  },
   "dependencies": {
-    "@openzeppelin/contracts": "^4.7.1"
+    "abitype": "^1.0.0",
+    "viem": "^2.7.8"
   },
   "devDependencies": {
-    "@commitlint/cli": "17.0.3",
-    "@commitlint/config-conventional": "17.0.3",
-    "@defi-wonderland/natspec-smells": "1.0.3",
+    "@openzeppelin/contracts": "^5.0.1",
+    "@types/jsdom": "^21.1.6",
+    "@types/node": "^20.11.5",
+    "@typescript-eslint/eslint-plugin": "^6.19.1",
+    "@typescript-eslint/parser": "^6.19.1",
+    "@vitest/coverage-v8": "^1.2.1",
     "ds-test": "github:dapphub/ds-test#e282159",
+    "dts-bundle-generator": "^9.2.4",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.3",
     "forge-std": "github:foundry-rs/forge-std#v1.7.6",
-    "husky": ">=8",
-    "lint-staged": ">=10",
-    "solhint": "github:solhint-community/solhint-community#v4.0.0-rc01",
-    "sort-package-json": "1.53.1"
+    "lint-staged": "^15.2.0",
+    "postcss": "^8.4.33",
+    "postcss-scss": "^4.0.9",
+    "prettier": "^3.2.4",
+    "prettier-plugin-solidity": "^1.3.1",
+    "rimraf": "^5.0.5",
+    "solhint-community": "github:solhint-community/solhint-community#v4.0.0-rc01",
+    "sort-package-json": "^2.7.0",
+    "stylelint-config-recommended": "^14.0.0",
+    "stylelint-config-sass-guidelines": "^11.0.0",
+    "stylelint-order": "^6.0.4",
+    "stylelint-prettier": "^5.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.12",
+    "vitest": "^1.2.1"
   }
 }

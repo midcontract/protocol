@@ -1,0 +1,30 @@
+{
+  "name": "@midcontract/protocol-example",
+  "version": "1.0.0",
+  "description": "Crypto payment protocol with escrow",
+  "keywords": [
+    "payment",
+    "crypto",
+    "escrow",
+    "midcontract"
+  ],
+  "homepage": "https://github.com/midcontract/protocol",
+  "bugs": "https://github.com/midcontract/protocol/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/midcontract/protocol.git"
+  },
+  "license": "MIT",
+  "author": {
+    "name": "Midcontract",
+    "url": "https://www.midcontract.com/"
+  },
+  "main": "index.mjs",
+  "type": "module",
+  "scripts": {
+    "test": "node ."
+  },
+  "dependencies": {
+    "@midcontract/protocol": "link:/home/ilyar/atlasapps/midcontract/midcontract-protocol"
+  }
+}

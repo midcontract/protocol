@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-
-set -o errexit
-
-. "$(dirname "$0")/_/husky.sh"
-
-yarn pre-commit

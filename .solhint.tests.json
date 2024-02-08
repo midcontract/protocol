@@ -15,7 +15,8 @@
     "named-parameters-function": "off",
     "no-global-import": "off",
     "max-states-count": "off",
-    "private-vars-leading-underscore": ["warn", { "strict": false }],
+    "private-vars-leading-underscore": "off",
+    "one-contract-per-file": "off",
     "ordering": "warn",
     "immutable-name-snakecase": "warn",
     "avoid-low-level-calls": "off"

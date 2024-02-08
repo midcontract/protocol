@@ -1,0 +1,6 @@
+services:
+  evm:
+    image: ghcr.io/foundry-rs/foundry:nightly-b174c3a4f80938636f18b3c9e49d45e6643f64a9
+    ports:
+      - 8545:8545
+    command: ["anvil --chain-id 1337 --host 0.0.0.0"]

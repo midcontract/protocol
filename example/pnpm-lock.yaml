@@ -1,0 +1,10 @@
+lockfileVersion: '6.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+dependencies:
+  '@midcontract/protocol':
+    specifier: link:/home/ilyar/atlasapps/midcontract/midcontract-protocol
+    version: link:..

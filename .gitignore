@@ -1,24 +1,35 @@
-# General
-yarn-error.log
-node_modules
-.DS_STORE
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Build
+.history
+.husky
 .vscode
-.idea
-
-# Foundry files
-cache
-out-via-ir
+coverage
+dist
+node_modules
+build
+dist-ssr
+*.local
 remappings.txt
-*.abi.json
-
-# Config files
-.env
-
-# Avoid ignoring gitkeep
-!/**/.gitkeep
-
-# Keep the latest deployment only
-broadcast/*/*/*
-
-# Out dir
 out
+broadcast
+cache
+
+# Editor directories and files
+.vscode/*
+.history/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

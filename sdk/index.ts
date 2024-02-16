@@ -99,6 +99,7 @@ export class MidcontractProtocol {
     return new MidcontractProtocol(chain, http(), contractList(name, chain.id), account);
   }
 
+  /** @deprecated */
   changeTransport(transport: CustomTransport, account: Account): void {
     this.wallet = createWalletClient({
       account,
@@ -115,12 +116,16 @@ export class MidcontractProtocol {
     const account = {
       address: accounts[0],
     } as Account;
-    const providerChainId = await provider.request({
-      method: "eth_chainId",
-    });
-    const currentChainId = (this.public.chain ? this.public.chain.id : "").toString(16);
-    if (currentChainId != providerChainId) {
-      throw new NotMatchError(`chainId ${providerChainId} provider and current chainId ${currentChainId}`);
+    if (this.public.chain) {
+      const currentChainId = BigInt(this.public.chain.id);
+      const providerChainId = await provider
+        .request({
+          method: "eth_chainId",
+        })
+        .then(chainId => BigInt(chainId));
+      if (currentChainId != providerChainId) {
+        throw new NotMatchError(`chainId ${providerChainId} provider and current chainId ${currentChainId}`);
+      }
     }
     this.wallet = createWalletClient({
       account,

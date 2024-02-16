@@ -9,13 +9,14 @@ error RequiresExactlyEtherOrMore(uint256);
 
 contract TestCoinFaucet is Ownable {
   IERC20 public coin;
-  uint256 public rate = 10_000;
+  uint256 public rate = 100_000;
+  uint256 public needle = 0.0001 ether;
 
   constructor() Ownable(msg.sender) {}
 
   receive() external payable {
-    if (msg.value < 0.01 ether) {
-      revert RequiresExactlyEtherOrMore(0.01 ether);
+    if (msg.value < needle) {
+      revert RequiresExactlyEtherOrMore(needle);
     }
     uint256 value = msg.value * rate;
     if (!coin.transfer(msg.sender, value)) {
@@ -29,6 +30,10 @@ contract TestCoinFaucet is Ownable {
 
   function changeRate(uint256 value) external onlyOwner {
     rate = value;
+  }
+
+  function changeNeedle(uint256 value) external onlyOwner {
+    needle = value;
   }
 
   function withdraw() external onlyOwner {

@@ -1,6 +1,6 @@
 {
   "name": "@midcontract/protocol",
-  "version": "1.0.0",
+  "version": "1.0.0-rc.12",
   "description": "Crypto payment protocol with escrow",
   "keywords": [
     "payment",
@@ -49,6 +49,7 @@
     "canary": "pnpm canary:version && npm publish --access public --tag canary",
     "canary:version": "pnpm version --new-version $(jq -r .version package.json)-$(git log -n 1 --pretty=format:%h) --no-git-tag-version",
     "deploy:blast": "source .env && forge script Deployment --broadcast --rpc-url $BLAST_RPC --private-key $BLAST_DEPLOYER_PK --verifier-url $BLAST_VERIFIER_URL --etherscan-api-key $BLAST_ETHERSCAN_API_KEY",
+    "deploy:blast-coin": "source .env && forge script TestCoinDeploy --broadcast --rpc-url $BLAST_RPC --private-key $BLAST_DEPLOYER_PK --verifier-url $BLAST_VERIFIER_URL --etherscan-api-key $BLAST_ETHERSCAN_API_KEY",
     "deploy:local": "source .env.test && forge script Testing --broadcast --rpc-url $RPC_URL --private-key $DEPLOYER_PK",
     "deploy:sepolia": "source .env && forge script Deployment --broadcast --rpc-url $SEPOLIA_RPC --private-key $SEPOLIA_DEPLOYER_PK --verify --etherscan-api-key $ETHERSCAN_API_KEY",
     "dev": "vite --host",

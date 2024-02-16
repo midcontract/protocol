@@ -40,6 +40,7 @@ import {
   NotSupportError,
   SimulateError,
 } from "@/Error";
+import { blastSepolia } from "@/chain/blastSepolia";
 
 export interface DepositAmount {
   depositAmount: number;
@@ -95,6 +96,8 @@ export class MidcontractProtocol {
     let chain = localhost as Chain;
     if (name == "test") {
       chain = sepolia;
+    } else if (name == "beta") {
+      chain = blastSepolia;
     }
     return new MidcontractProtocol(chain, http(), contractList(name, chain.id), account);
   }

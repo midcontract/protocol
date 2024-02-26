@@ -6,8 +6,8 @@ settings:
 
 devDependencies:
   '@midcontract/protocol':
-    specifier: 1.0.0-rc.14
-    version: 1.0.0-rc.14
+    specifier: 1.0.0-rc.15
+    version: 1.0.0-rc.15
   dotenv:
     specifier: ^16.4.5
     version: 16.4.5
@@ -18,8 +18,8 @@ packages:
     resolution: {integrity: sha512-nA9XHtlAkYfJxY7bce8DcN7eKxWWCWkU+1GR9d+U6MbNpfwQp8TI7vqOsBsMcHoT4mBu2kypKoSKnghEzOOq5Q==}
     dev: true
 
-  /@midcontract/protocol@1.0.0-rc.14:
-    resolution: {integrity: sha512-u5F3KVIuzbrYokOBi8ECw1ZWCMmK7aKFS9bB69OVfuggxxnH7i1ezP24iJ4OhIZwQ5puqxv3oyLa3LmoQF705w==}
+  /@midcontract/protocol@1.0.0-rc.15:
+    resolution: {integrity: sha512-zpxd3JSqNLm/hHv4FXXdvNEc9pnJRR7zXhWjUNLUSQSNRkLH/MW4cdP2t1zFU6wW+6FIPFhwZ6VFThD9aodbcw==}
     dependencies:
       abitype: 1.0.0
       viem: 2.7.14

@@ -92,14 +92,15 @@ export class MidcontractProtocol {
     });
   }
 
-  static buildByEnvironment(name: Environment = "test", account?: Account): MidcontractProtocol {
+  static buildByEnvironment(name: Environment = "test", account?: Account, url?: string): MidcontractProtocol {
     let chain = localhost as Chain;
     if (name == "test") {
       chain = sepolia;
     } else if (name == "beta") {
       chain = blastSepolia;
     }
-    return new MidcontractProtocol(chain, http(), contractList(name, chain.id), account);
+    const transport = url ? http(url) : http();
+    return new MidcontractProtocol(chain, transport, contractList(name, chain.id), account);
   }
 
   /** @deprecated */

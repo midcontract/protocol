@@ -4,7 +4,7 @@ import {privateKeyToAccount} from "viem/accounts"
 const random = (min, max) => Math.round(Math.random() * (max - min) + min);
 
 // pnpm i
-// create .env with ALICE_PK="0x..."
+// create .env with ALICE_PK="0x..." and optional BLOCKCHAIN_RPC="http..."
 // time node deposit.mjs <depositId>
 
 async function main() {
@@ -14,10 +14,11 @@ async function main() {
   }
   const alice = privateKeyToAccount(process.env.ALICE_PK)
   console.log({wallet: alice.address})
-  const mp = MidcontractProtocol.buildByEnvironment("beta", alice)
+  const mp = MidcontractProtocol.buildByEnvironment("test", alice, process.env.BLOCKCHAIN_RPC)
   const depositId = BigInt(process.argv.slice(2).pop() || random(1000, 1000000))
   console.log({depositId})
   const randomData = "" // TODO use random data in prod
+  let start = Date.now()
   const recipientData = await mp.escrowMakeDataHash(randomData)
   console.log({recipientData})
   const depositStatus = await mp.escrowDeposit({
@@ -25,12 +26,19 @@ async function main() {
     amount: 1,
     recipientData,
   })
-  console.log({depositStatus})
+  let end = Date.now()
+  console.log(`deposit ${end - start}ms`, {depositStatus})
+  start = Date.now()
   const transaction = await mp.transactionByHashWait(depositStatus.id)
-  console.log({
+  end = Date.now()
+  console.log(`transaction ${end - start}ms`, {
     transactionID: transaction.transaction.hash,
     receipt: transaction.receipt.status,
   })
+  start = Date.now()
+  const data = await mp.transactionParse(transaction)
+  end = Date.now()
+  console.log(`parse ${end - start}ms`, {data})
   console.log("END")
 }
 

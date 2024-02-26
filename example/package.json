@@ -24,7 +24,8 @@
   "scripts": {
     "test": "node ."
   },
-  "dependencies": {
-    "@midcontract/protocol": "link:/home/ilyar/atlasapps/midcontract/midcontract-protocol"
+  "devDependencies": {
+    "@midcontract/protocol": "1.0.0-rc.14",
+    "dotenv": "^16.4.5"
   }
 }

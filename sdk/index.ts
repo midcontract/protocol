@@ -385,6 +385,19 @@ export class MidcontractProtocol {
     return hash;
   }
 
+  async transactionByHashWait(hash: Hash): Promise<TransactionData> {
+    const transaction = await this.public.getTransaction({
+      hash,
+    });
+    const receipt = await this.public.waitForTransactionReceipt({
+      hash,
+    });
+    return {
+      transaction,
+      receipt,
+    };
+  }
+
   async transactionByHash(hash: Hash): Promise<TransactionData> {
     const transaction = await this.public.getTransaction({
       hash,

@@ -23,7 +23,6 @@ contract Escrow is IEscrow, AccessControl, ReentrancyGuard {
     bytes32 recipientData;
   }
 
-  bytes32 public constant ADMIN_ROLE = keccak256('ADMIN_ROLE');
   uint256 public constant FEE_DENOMINATOR = 1000;
 
   address public vault;
@@ -39,14 +38,11 @@ contract Escrow is IEscrow, AccessControl, ReentrancyGuard {
   }
 
   constructor() {
-    _grantRole(ADMIN_ROLE, msg.sender);
+    _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     vault = msg.sender;
-    // FIXME move into parameter
     payeeFee = 30; // 3%
     recipientFee = 50; // 5%
   }
-
-  //---------------------------------- MAIN FUNCTIONS ---------------------------------------------------------------
 
   function deposit(
     uint256 depositId,
@@ -163,16 +159,28 @@ contract Escrow is IEscrow, AccessControl, ReentrancyGuard {
     emit DepositClaimed(depositId, msg.sender, current.token, current.amountToClaim);
   }
 
-  function addToken(address _token) external onlyRole(ADMIN_ROLE) {
-    tokenList[_token] = true;
+  function changeVault(address value) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    vault = value;
   }
 
-  function removeToken(address _token) external onlyRole(ADMIN_ROLE) {
-    tokenList[_token] = false;
+  function changePayeeFee(uint256 value) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    payeeFee = value;
   }
 
-  function whitelist(address _token) public view returns (bool) {
-    return tokenList[_token];
+  function changeRecipientFee(uint256 value) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    recipientFee = value;
+  }
+
+  function addToken(address value) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    tokenList[value] = true;
+  }
+
+  function removeToken(address value) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    tokenList[value] = false;
+  }
+
+  function whitelist(address value) public view returns (bool) {
+    return tokenList[value];
   }
 
   function makeDataHash(string memory data) public pure returns (bytes32) {

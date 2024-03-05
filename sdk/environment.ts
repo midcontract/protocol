@@ -25,7 +25,7 @@ export function* iterateTokenList(tokenList: TokenList): IterableIterator<DataTo
 
 export type ContractList = {
   chainName: string;
-  escrow: Address;
+  escrow: Array<Address>;
   tokenList: TokenList;
 };
 
@@ -43,7 +43,7 @@ export const environmentList: EnvironmentList = {
   local: {
     1337: {
       chainName: "Localhost",
-      escrow: "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      escrow: ["0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"],
       tokenList: {
         USDT: {
           symbol: "USDT",
@@ -56,7 +56,10 @@ export const environmentList: EnvironmentList = {
   test: {
     11_155_111: {
       chainName: "Sepolia",
-      escrow: "0xc6F1B2Df92a852bd0B956eEe71B03c319f911ad1",
+      escrow: [
+        "0x9F8cf2d0Fd356067835527ca03cb9B5a7c1435D0",
+        "0xc6F1B2Df92a852bd0B956eEe71B03c319f911ad1"
+      ],
       tokenList: {
         USDT: {
           symbol: "USDT",
@@ -69,7 +72,7 @@ export const environmentList: EnvironmentList = {
   beta: {
     168_587_773: {
       chainName: "BlastSepolia",
-      escrow: "0x031d38e3353C1DCFD76d0618C4cF883882eed6C5",
+      escrow: ["0x031d38e3353C1DCFD76d0618C4cF883882eed6C5"],
       tokenList: {
         USDT: {
           symbol: "USDT",

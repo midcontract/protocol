@@ -41,8 +41,10 @@ describe("base", async () => {
       depositId,
       amount,
       recipientData,
+      fullFee: true,
     });
     expect(depositStatus.status).toEqual("success");
+    expect((await mp.getDepositList(depositId)).amount > 0n).toBeTruthy();
 
     mp.changeAccount(bob);
     const escrowSubmitStatus = await mp.escrowSubmit(depositId, data);
@@ -55,12 +57,20 @@ describe("base", async () => {
       recipient: bob.address,
     });
     expect(escrowApproveStatus.status).toEqual("success");
+    const escrowRefillStatus = await mp.escrowApprove({
+      depositId,
+      valueApprove: amount,
+      valueAdditional: amount,
+      recipient: bob.address,
+    });
+    expect(escrowRefillStatus.status).toEqual("success");
+    expect((await mp.getDepositList(depositId)).amountToClaim > 0n).toBeTruthy();
 
     mp.changeAccount(bob);
     const escrowClaimStatus = await mp.escrowClaim(depositId);
     expect(escrowClaimStatus.status).toEqual("success");
 
     expect(await mp.tokenBalance(alice.address)).toBeLessThan(aliceBalance);
-    expect(await mp.tokenBalance(bob.address)).toBeGreaterThan(bobBalance);
+    expect(await mp.tokenBalance(bob.address)).toEqual(bobBalance + amount * 2);
   });
 });

@@ -32,8 +32,8 @@ contract Escrow is IEscrow, AccessControl, ReentrancyGuard {
   mapping(address token => bool whitelisted) public tokenList;
   mapping(uint256 id => Deposit depositDetails) public depositList;
 
-  modifier onlyPayee(uint256 _depositId) {
-    if (depositList[_depositId].payee != msg.sender) revert CallOnlyByPayee();
+  modifier onlyPayee(uint256 depositId) {
+    if (depositList[depositId].payee != msg.sender) revert CallOnlyByPayee();
     _;
   }
 
@@ -55,16 +55,7 @@ contract Escrow is IEscrow, AccessControl, ReentrancyGuard {
     if (depositList[depositId].payee != address(0)) revert DepositAlreadyExists();
     if (!whitelist(token)) revert NotSupportToken();
 
-    uint256 toSend;
-    uint256 fee;
-
-    if (fullFee) {
-      fee = amount * (payeeFee + recipientFee) / FEE_DENOMINATOR;
-      toSend = amount + fee;
-    } else {
-      fee = amount * payeeFee / FEE_DENOMINATOR;
-      toSend = amount + fee;
-    }
+    uint256 toSend = calcDeposit(amount, fullFee);
     IERC20(token).safeTransferFrom(msg.sender, address(this), toSend);
 
     Deposit storage newDeposit = depositList[depositId];
@@ -118,45 +109,62 @@ contract Escrow is IEscrow, AccessControl, ReentrancyGuard {
     emit Submitted(depositId, msg.sender);
   }
 
+  function refill(uint256 depositId, uint256 amount) private onlyPayee(depositId) {
+    Deposit storage current = depositList[depositId];
+    if (amount > 0) {
+      uint256 toSend = calcDeposit(amount, current.configFee);
+      IERC20(current.token).safeTransferFrom(msg.sender, address(this), toSend);
+      current.amount += amount;
+      emit Refilled(depositId, amount);
+    }
+  }
+
   function approve(
     uint256 depositId,
     uint256 valueApprove,
     uint256 valueAdditional,
     address recipient
   ) external onlyPayee(depositId) {
-    Deposit storage currentDeposit = depositList[depositId];
-    currentDeposit.status = Status.APPROVED;
-    currentDeposit.recipient = recipient;
-    emit Approved(depositId, valueApprove, valueAdditional, recipient);
-    // FIXME amountAdditional
-    // if (amountAdditional > 0) {
-    //   uint256 newAmount = amountAllowance += amountAdditional;
-    //   currentDeposit.amountToClaim = newAmount;
-    // } else {
-    //   currentDeposit.amountToClaim = amountAllowance;
-    // }
+    Deposit storage current = depositList[depositId];
+    current.status = Status.PENDING;
+    if (current.recipient == address(0) && recipient != address(0)) {
+      current.recipient = recipient;
+    }
+    refill(depositId, valueAdditional);
+    if (valueApprove > 0) {
+      if (current.amount <= current.amountToClaim + valueApprove) {
+        current.amountToClaim += valueApprove;
+        emit Approved(depositId, valueApprove, recipient);
+      } else {
+        revert NotEnoughDeposit();
+      }
+    }
+  }
+
+  function calcDeposit(uint256 amount, bool fullFee) public view returns (uint256) {
+    if (fullFee) {
+      return amount + amount * (recipientFee + payeeFee) / FEE_DENOMINATOR;
+    }
+    return amount + amount * payeeFee / FEE_DENOMINATOR;
+  }
+
+  function calcClaim(uint256 amount, bool fullFee) public view returns (uint256) {
+    if (fullFee) {
+      return amount;
+    }
+    return amount - amount * recipientFee / FEE_DENOMINATOR;
   }
 
   function claim(uint256 depositId) external nonReentrant {
     Deposit storage current = depositList[depositId];
     if (current.recipient != msg.sender) revert CallOnlyByRecipient();
-    if (current.status != Status.APPROVED) revert NotApproved();
+    if (current.amountToClaim == 0) revert NotApproved();
 
-    uint256 fee;
-    uint256 toSend;
-
-    if (current.configFee) {
-      fee = current.amount * 80 / 1000;
-      feeAmount += fee;
-      toSend = current.amount;
-    } else {
-      fee = current.amount * 50 / 1000;
-      feeAmount += fee;
-      toSend = current.amount - fee;
-    }
+    uint256 toSend = calcClaim(current.amountToClaim, current.configFee);
     IERC20(current.token).transfer(msg.sender, toSend);
+    current.amountToClaim = 0;
 
-    emit DepositClaimed(depositId, msg.sender, current.token, current.amountToClaim);
+    emit DepositClaimed(depositId, msg.sender, current.token, toSend);
   }
 
   function changeVault(address value) external onlyRole(DEFAULT_ADMIN_ROLE) {

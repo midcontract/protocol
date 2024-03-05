@@ -6,9 +6,11 @@ Crypto payment protocol with escrow
 stateDiagram-v2
     [*] --> PENDING
     PENDING --> SUBMITTED: submit
-    SUBMITTED --> APPROVED: approve
-    SUBMITTED --> PENDING: reject
-    APPROVED -->  [*]
+    SUBMITTED --> PENDING: approve
+    SUBMITTED --> DISPUTED: dispute
+    PENDING --> DISPUTED: dispute
+    DISPUTED --> PENDING: resolve
+    PENDING -->  [*]
 ```
 
 ```mermaid

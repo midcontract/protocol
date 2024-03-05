@@ -21,9 +21,9 @@ interface IEscrow {
     bool allFee
   );
 
-  event Approved(
-    uint256 indexed depositId, uint256 amountAllowance, uint256 amountAdditional, address indexed recipient
-  );
+  event Approved(uint256 indexed depositId, uint256 amount, address indexed recipient);
+
+  event Refilled(uint256 indexed depositId, uint256 amountAdditional);
 
   event Withdrawn(uint256 indexed depositId, address indexed payee, address indexed token, uint256 amount);
 
@@ -37,6 +37,7 @@ interface IEscrow {
   error CallOnlyByRecipient();
   error DepositAlreadyExists();
   error CannotWithdrawAtThisStage();
+  error NotEnoughDeposit();
   error NotBeSubmitted();
   error NotApproved();
   error NotSupportToken();

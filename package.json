@@ -1,6 +1,6 @@
 {
   "name": "@midcontract/protocol",
-  "version": "1.0.0-rc.16",
+  "version": "1.0.0-rc.17",
   "description": "Crypto payment protocol with escrow",
   "keywords": [
     "payment",
@@ -53,6 +53,7 @@
     "deploy:blast-faucet": "source .env && forge script TestCoinFaucetDeploy --broadcast --rpc-url $BLAST_RPC --private-key $BLAST_DEPLOYER_PK --verifier-url $BLAST_VERIFIER_URL --etherscan-api-key $BLAST_ETHERSCAN_API_KEY",
     "deploy:local": "source .env.test && forge script Testing --broadcast --rpc-url $RPC_URL --private-key $DEPLOYER_PK",
     "deploy:sepolia": "source .env && forge script Deployment --broadcast --rpc-url $SEPOLIA_RPC --private-key $SEPOLIA_DEPLOYER_PK --verify --etherscan-api-key $ETHERSCAN_API_KEY",
+    "deploy:sepolia-faucet": "source .env && forge script TestCoinFaucetDeploy --broadcast --rpc-url $SEPOLIA_RPC --private-key $SEPOLIA_DEPLOYER_PK --verify --etherscan-api-key $ETHERSCAN_API_KEY",
     "dev": "vite --host",
     "docs:sdk": "typedoc sdk/index.ts",
     "fix": "sort-package-json && forge fmt && pnpm lint:sol-tests --fix && pnpm lint:sol-logic --fix && pnpm fix:sdk",

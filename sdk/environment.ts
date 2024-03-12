@@ -56,10 +56,7 @@ export const environmentList: EnvironmentList = {
   test: {
     11_155_111: {
       chainName: "Sepolia",
-      escrow: [
-        "0x9F8cf2d0Fd356067835527ca03cb9B5a7c1435D0",
-        "0xc6F1B2Df92a852bd0B956eEe71B03c319f911ad1"
-      ],
+      escrow: ["0x9F8cf2d0Fd356067835527ca03cb9B5a7c1435D0", "0xc6F1B2Df92a852bd0B956eEe71B03c319f911ad1"],
       tokenList: {
         USDT: {
           symbol: "USDT",
@@ -72,7 +69,7 @@ export const environmentList: EnvironmentList = {
   beta: {
     168_587_773: {
       chainName: "BlastSepolia",
-      escrow: ["0x031d38e3353C1DCFD76d0618C4cF883882eed6C5"],
+      escrow: ["0x902ecb004A246A5e4f7E8C4E5091865084A32fae", "0x031d38e3353C1DCFD76d0618C4cF883882eed6C5"],
       tokenList: {
         USDT: {
           symbol: "USDT",

@@ -14,8 +14,8 @@ async function main() {
   }
   const alice = privateKeyToAccount(process.env.ALICE_PK)
   console.log({wallet: alice.address})
-  const mp = MidcontractProtocol.buildByEnvironment("test", alice, process.env.BLOCKCHAIN_RPC)
-  const depositId = BigInt(process.argv.slice(2).pop() || random(1000, 1000000))
+  const mp = MidcontractProtocol.buildByEnvironment(process.env.APP_ENV || "test", alice, process.env.BLOCKCHAIN_RPC)
+  const depositId = BigInt(process.argv.slice(2).pop() || random(1000000, 2000000))
   console.log({depositId})
   const randomData = "" // TODO use random data in prod
   let start = Date.now()
@@ -30,6 +30,7 @@ async function main() {
   console.log(`deposit ${end - start}ms`, {depositStatus})
   start = Date.now()
   const transaction = await mp.transactionByHashWait(depositStatus.id)
+  console.log(mp.transactionUrl(depositStatus.id))
   end = Date.now()
   console.log(`transaction ${end - start}ms`, {
     transactionID: transaction.transaction.hash,

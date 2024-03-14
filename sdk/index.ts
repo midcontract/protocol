@@ -80,6 +80,7 @@ export class MidcontractProtocol {
   private readonly escrow: Address;
   private wallet: WalletClient;
   private public: PublicClient;
+  public readonly blockExplorer: string;
 
   constructor(chain: Chain, transport: HttpTransport, contractList: ContractList, account?: Account) {
     this.contractList = contractList;
@@ -96,6 +97,10 @@ export class MidcontractProtocol {
       chain: chain,
       transport: transport,
     });
+    if (!chain.blockExplorers || !chain.blockExplorers.default) {
+      throw new NotSetError("block explorer");
+    }
+    this.blockExplorer = chain.blockExplorers.default.url;
   }
 
   static buildByEnvironment(name: Environment = "test", account?: Account, url?: string): MidcontractProtocol {
@@ -483,5 +488,13 @@ export class MidcontractProtocol {
 
   private async send(input: WriteContractParameters): Promise<Hash> {
     return this.wallet.writeContract(input);
+  }
+
+  transactionUrl(transactionHash: Hash): string {
+    return `${this.blockExplorer}/tx/${transactionHash}`;
+  }
+
+  accountUrl(account: Address): string {
+    return `${this.blockExplorer}/address/${account}`;
   }
 }

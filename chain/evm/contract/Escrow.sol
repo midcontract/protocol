@@ -126,13 +126,13 @@ contract Escrow is IEscrow, AccessControl, ReentrancyGuard {
     address recipient
   ) external onlyPayee(depositId) {
     Deposit storage current = depositList[depositId];
-    current.status = Status.PENDING;
     if (current.recipient == address(0) && recipient != address(0)) {
       current.recipient = recipient;
     }
     refill(depositId, valueAdditional);
     if (valueApprove > 0) {
-      if (current.amount <= current.amountToClaim + valueApprove) {
+      current.status = Status.PENDING;
+      if (current.amount >= (current.amountToClaim + valueApprove)) {
         current.amountToClaim += valueApprove;
         emit Approved(depositId, valueApprove, recipient);
       } else {

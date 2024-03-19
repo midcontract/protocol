@@ -17,6 +17,10 @@ export class NotSupportError extends UserMidcontractProtocolError {
   override name = "not support";
 }
 
+export class NotFoundError extends UserMidcontractProtocolError {
+  override name = "not found";
+}
+
 export class NotMatchError extends UserMidcontractProtocolError {
   override name = "not match";
 }

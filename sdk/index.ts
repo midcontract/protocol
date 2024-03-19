@@ -34,6 +34,7 @@ import { escrow } from "@/abi/Escrow";
 import {
   CoreMidcontractProtocolError,
   NotEnoughError,
+  NotFoundError,
   NotMatchError,
   NotSetError,
   NotSuccessTransactionError,
@@ -59,9 +60,9 @@ export interface DepositInput {
 
 export interface ApproveInput {
   depositId: bigint;
-  valueApprove: number;
+  valueApprove?: number;
   valueAdditional?: number;
-  recipient: Address;
+  recipient?: Address;
   token?: SymbolToken;
 }
 
@@ -97,10 +98,8 @@ export class MidcontractProtocol {
       chain: chain,
       transport: transport,
     });
-    if (!chain.blockExplorers || !chain.blockExplorers.default) {
-      throw new NotSetError("block explorer");
-    }
-    this.blockExplorer = chain.blockExplorers.default.url;
+    this.blockExplorer =
+      chain.blockExplorers && chain.blockExplorers.default ? chain.blockExplorers.default.url : "http://localhost";
   }
 
   static buildByEnvironment(name: Environment = "test", account?: Account, url?: string): MidcontractProtocol {
@@ -304,7 +303,22 @@ export class MidcontractProtocol {
       functionName: "depositList",
       args: [depositId],
     });
-    return new Deposit(data);
+    for (const token of this.tokenList) {
+      if (token.address == data[2]) {
+        return new Deposit([
+          data[0],
+          data[1],
+          token.symbol,
+          Number(formatUnits(data[3], token.decimals)),
+          Number(formatUnits(data[4], token.decimals)),
+          data[5],
+          data[6],
+          data[7],
+          data[8],
+        ]);
+      }
+    }
+    throw new NotFoundError();
   }
 
   async escrowDeposit(input: DepositInput): Promise<TransactionStatus> {
@@ -350,10 +364,18 @@ export class MidcontractProtocol {
     return { id: hash, status: transaction.status };
   }
 
+  escrowRefill(depositId: bigint, value: number): Promise<TransactionStatus> {
+    return this.escrowApprove({
+      depositId,
+      valueAdditional: value,
+    });
+  }
+
   async escrowApprove(input: ApproveInput): Promise<TransactionStatus> {
     input.token = input.token || "USDT";
     input.valueApprove = input.valueApprove || 0;
     input.valueAdditional = input.valueAdditional || 0;
+    const recipient = input.recipient || "0x0000000000000000000000000000000000000000";
     if (input.valueApprove == 0 && input.valueAdditional == 0) {
       throw new NotSetError("valueAdditional");
     }
@@ -372,7 +394,7 @@ export class MidcontractProtocol {
         input.depositId,
         parseUnits(input.valueApprove.toString(), token.decimals),
         parseUnits(input.valueAdditional.toString(), token.decimals),
-        input.recipient,
+        recipient,
       ],
       functionName: "approve",
     });

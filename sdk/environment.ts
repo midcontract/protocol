@@ -73,7 +73,11 @@ export const environmentList: EnvironmentList = {
   beta: {
     168_587_773: {
       chainName: "BlastSepolia",
-      escrow: ["0x902ecb004A246A5e4f7E8C4E5091865084A32fae", "0x031d38e3353C1DCFD76d0618C4cF883882eed6C5"],
+      escrow: [
+        "0xB83573bedA04Bb23b26917FaaD560cE51e2989Cc",
+        "0x902ecb004A246A5e4f7E8C4E5091865084A32fae",
+        "0x031d38e3353C1DCFD76d0618C4cF883882eed6C5",
+      ],
       tokenList: {
         USDT: {
           symbol: "USDT",

@@ -78,7 +78,7 @@ export interface TransactionStatus {
 
 export class MidcontractProtocol {
   private readonly contractList: ContractList;
-  private readonly escrow: Address;
+  private escrow: Address;
   private wallet: WalletClient;
   private public: PublicClient;
   public readonly blockExplorer: string;
@@ -150,6 +150,10 @@ export class MidcontractProtocol {
       chain: this.public.chain,
       transport: custom(provider),
     });
+  }
+
+  changeEscrow(escrow: Address): void {
+    this.escrow = escrow;
   }
 
   changeAccount(account: Account): void {

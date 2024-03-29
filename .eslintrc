@@ -13,6 +13,7 @@
     "node": true
   },
   "rules": {
+    "no-empty": ["error", { "allowEmptyCatch": true }],
     "prettier/prettier": "error"
   }
 }

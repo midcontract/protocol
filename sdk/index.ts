@@ -43,6 +43,7 @@ import {
 } from "@/Error";
 import { blastSepolia } from "@/chain/blastSepolia";
 import { Deposit } from "@/Deposit";
+import { parseInput, type TransactionInput } from "@/parse";
 
 export interface DepositAmount {
   depositAmount: number;
@@ -66,14 +67,18 @@ export interface ApproveInput {
   token?: SymbolToken;
 }
 
+export type TransactionStatus = "pending" | "success" | "reverted";
+
 export interface TransactionData {
   transaction: Transaction;
-  receipt: TransactionReceipt;
+  input: TransactionInput;
+  status: TransactionStatus;
+  receipt: TransactionReceipt | null;
 }
 
-export interface TransactionStatus {
+export interface TransactionId {
   id: Hash;
-  status: "success" | "reverted";
+  status: TransactionStatus;
 }
 
 export class MidcontractProtocol {
@@ -325,7 +330,23 @@ export class MidcontractProtocol {
     throw new NotFoundError();
   }
 
-  async escrowDeposit(input: DepositInput): Promise<TransactionStatus> {
+  private async getTransactionReceipt(hash: Hash, waitReceipt = false): Promise<TransactionReceipt | null> {
+    let receipt: TransactionReceipt | null = null;
+    try {
+      if (waitReceipt) {
+        receipt = await this.public.waitForTransactionReceipt({
+          hash,
+        });
+      } else {
+        receipt = await this.public.getTransactionReceipt({
+          hash,
+        });
+      }
+    } catch (_) {}
+    return receipt;
+  }
+
+  async escrowDeposit(input: DepositInput, waitReceipt = true): Promise<TransactionId> {
     input.token = input.token || "USDT";
     input.timeLock = input.timeLock || BigInt(0);
     input.fullFee = input.fullFee || false;
@@ -351,11 +372,11 @@ export class MidcontractProtocol {
       functionName: "deposit",
     });
     const hash = await this.send(request);
-    const transaction = await this.public.waitForTransactionReceipt({ hash });
-    return { id: hash, status: transaction.status };
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return { id: hash, status: receipt ? receipt.status : "pending" };
   }
 
-  async escrowSubmit(depositId: bigint, data: string): Promise<TransactionStatus> {
+  async escrowSubmit(depositId: bigint, data: string, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
       abi: escrow,
@@ -364,18 +385,21 @@ export class MidcontractProtocol {
       functionName: "submit",
     });
     const hash = await this.send(request);
-    const transaction = await this.public.waitForTransactionReceipt({ hash });
-    return { id: hash, status: transaction.status };
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return { id: hash, status: receipt ? receipt.status : "pending" };
   }
 
-  escrowRefill(depositId: bigint, value: number): Promise<TransactionStatus> {
-    return this.escrowApprove({
-      depositId,
-      valueAdditional: value,
-    });
+  escrowRefill(depositId: bigint, value: number, waitReceipt = true): Promise<TransactionId> {
+    return this.escrowApprove(
+      {
+        depositId,
+        valueAdditional: value,
+      },
+      waitReceipt
+    );
   }
 
-  async escrowApprove(input: ApproveInput): Promise<TransactionStatus> {
+  async escrowApprove(input: ApproveInput, waitReceipt = true): Promise<TransactionId> {
     input.token = input.token || "USDT";
     input.valueApprove = input.valueApprove || 0;
     input.valueAdditional = input.valueAdditional || 0;
@@ -403,11 +427,11 @@ export class MidcontractProtocol {
       functionName: "approve",
     });
     const hash = await this.send(request);
-    const transaction = await this.public.waitForTransactionReceipt({ hash });
-    return { id: hash, status: transaction.status };
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return { id: hash, status: receipt ? receipt.status : "pending" };
   }
 
-  async escrowClaim(depositId: bigint): Promise<TransactionStatus> {
+  async escrowClaim(depositId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
       abi: escrow,
@@ -416,11 +440,11 @@ export class MidcontractProtocol {
       functionName: "claim",
     });
     const hash = await this.send(request);
-    const transaction = await this.public.waitForTransactionReceipt({ hash });
-    return { id: hash, status: transaction.status };
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return { id: hash, status: receipt ? receipt.status : "pending" };
   }
 
-  async escrowWithdraw(depositId: bigint): Promise<Hash> {
+  async escrowWithdraw(depositId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
       abi: escrow,
@@ -429,35 +453,23 @@ export class MidcontractProtocol {
       functionName: "withdraw",
     });
     const hash = await this.send(request);
-    const transaction = await this.public.waitForTransactionReceipt({ hash });
-    if (transaction.status != "success") {
-      throw new NotSuccessTransactionError(`withdraw #${depositId}`);
-    }
-    return hash;
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return { id: hash, status: receipt ? receipt.status : "pending" };
   }
 
   async transactionByHashWait(hash: Hash): Promise<TransactionData> {
-    const receipt = await this.public.waitForTransactionReceipt({
-      hash,
-    });
-    const transaction = await this.public.getTransaction({
-      hash,
-    });
-    return {
-      transaction,
-      receipt,
-    };
+    return this.transactionByHash(hash, true);
   }
 
-  async transactionByHash(hash: Hash): Promise<TransactionData> {
+  async transactionByHash(hash: Hash, waitReceipt = false): Promise<TransactionData> {
     const transaction = await this.public.getTransaction({
       hash,
     });
-    const receipt = await this.public.getTransactionReceipt({
-      hash,
-    });
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
     return {
       transaction,
+      input: parseInput(transaction.input),
+      status: receipt ? receipt.status : "pending",
       receipt,
     };
   }
@@ -468,7 +480,7 @@ export class MidcontractProtocol {
       throw new NotSupportError(`contract ${transaction.to} ${this.escrow}`);
     }
     const input = await this.parseInput(transaction.input);
-    const events = await this.parseLogs(receipt.logs).then(logs =>
+    const events = await this.parseLogs(receipt ? receipt.logs : []).then(logs =>
       logs.map(log => {
         return {
           eventName: log.eventName,

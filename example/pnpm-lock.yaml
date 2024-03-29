@@ -6,8 +6,8 @@ settings:
 
 devDependencies:
   '@midcontract/protocol':
-    specifier: 1.0.0-rc.18
-    version: 1.0.0-rc.18
+    specifier: 1.0.0-rc.23
+    version: 1.0.0-rc.23
   dotenv:
     specifier: ^16.4.5
     version: 16.4.5
@@ -18,11 +18,11 @@ packages:
     resolution: {integrity: sha512-nA9XHtlAkYfJxY7bce8DcN7eKxWWCWkU+1GR9d+U6MbNpfwQp8TI7vqOsBsMcHoT4mBu2kypKoSKnghEzOOq5Q==}
     dev: true
 
-  /@midcontract/protocol@1.0.0-rc.18:
-    resolution: {integrity: sha512-qo1TJSouTHrCRW/+sPt02fr5BFDyTumC7X9FWE3jPq9ofcuXA/6n2rdS2ikXZVeHUvAJdFeN4W3daue7sQM/hA==}
+  /@midcontract/protocol@1.0.0-rc.23:
+    resolution: {integrity: sha512-LIQq8RZhnk2QI6fuILvtQm6fwauZxlH6nKqKzZLa3DlxWzoTIGCyd7g7UWf/6NXxylArnnkpf3h+IUQWzJfrdA==}
     dependencies:
-      abitype: 1.0.0
-      viem: 2.7.14
+      abitype: 1.0.2
+      viem: 2.9.5
     transitivePeerDependencies:
       - bufferutil
       - typescript
@@ -41,8 +41,8 @@ packages:
     engines: {node: '>= 16'}
     dev: true
 
-  /@scure/base@1.1.5:
-    resolution: {integrity: sha512-Brj9FiG2W1MRQSTB212YVPRrcbjkv48FoZi/u4l/zds/ieRrqsh7aUf6CLwkAq61oKXr/ZlTzlY66gLIj3TFTQ==}
+  /@scure/base@1.1.6:
+    resolution: {integrity: sha512-ok9AWwhcgYuGG3Zfhyqg+zwl+Wn5uE+dwC0NV/2qQkx4dABbb/bx96vWu8NSj+BNjjSjno+JRYRjle1jV08k3g==}
     dev: true
 
   /@scure/bip32@1.3.2:
@@ -50,18 +50,30 @@ packages:
     dependencies:
       '@noble/curves': 1.2.0
       '@noble/hashes': 1.3.2
-      '@scure/base': 1.1.5
+      '@scure/base': 1.1.6
     dev: true
 
   /@scure/bip39@1.2.1:
     resolution: {integrity: sha512-Z3/Fsz1yr904dduJD0NpiyRHhRYHdcnyh73FZWiV+/qhWi83wNJ3NWolYqCEN+ZWsUz2TWwajJggcRE9r1zUYg==}
     dependencies:
       '@noble/hashes': 1.3.2
-      '@scure/base': 1.1.5
+      '@scure/base': 1.1.6
     dev: true
 
   /abitype@1.0.0:
     resolution: {integrity: sha512-NMeMah//6bJ56H5XRj8QCV4AwuW6hB6zqz2LnhhLdcWVQOsXki6/Pn3APeqxCma62nXIcmZWdu1DlHWS74umVQ==}
+    peerDependencies:
+      typescript: '>=5.0.4'
+      zod: ^3 >=3.22.0
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+      zod:
+        optional: true
+    dev: true
+
+  /abitype@1.0.2:
+    resolution: {integrity: sha512-aFt4k2H+eiAKy/zxtnORa9iIb10BMBeWL18l8v4+QuwYEBXPxxjSB1bFZCzQmKPoj8m7j68K705l3uY+E2gAjg==}
     peerDependencies:
       typescript: '>=5.0.4'
       zod: ^3 >=3.22.0
@@ -85,8 +97,8 @@ packages:
       ws: 8.13.0
     dev: true
 
-  /viem@2.7.14:
-    resolution: {integrity: sha512-5b1KB1gXli02GOQHZIUsRluNUwssl2t4hqdFAzyWPwJ744N83jAOBOjOkrGz7K3qMIv9b0GQt3DoZIErSQTPkQ==}
+  /viem@2.9.5:
+    resolution: {integrity: sha512-IKLmGZJEQkdt9fqvryjR+W1FsPZM+dhALT0pwR8xhBOLvVHM0/lEViGRWDpm2ArNsFszipFhc2EpKp80/PnXkw==}
     peerDependencies:
       typescript: '>=5.0.4'
     peerDependenciesMeta:

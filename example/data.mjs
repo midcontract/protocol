@@ -3,21 +3,15 @@ import {MidcontractProtocol} from "@midcontract/protocol"
 async function main() {
   console.log("START")
   const list = [
-    '0x96b639d91eefd281ffbf004a711c72ab61cb1ec39e184c7422cde2ad6d9c1d46',
-    '0x5be9a944ad3f149996e8c794467ca86f0a15a05b89c7b5b4813c5488c564a101',
+    '0xaf7edb709c0ed9fecb1a1c7217cdc0fba96616c845d70d9c959ca07f290fb8ba',
+    '0x16def4b15c48b66a154bb980acebcf391d0f0ec801f07a535ff70be278f10bef',
+    '0xb31908b13e86e91a602f3ba1d20f29b2c86563d0dbad167a2f87672fc5791524',
+    '0xb085602769ff8d82c59b7e5ee1f753137fe02ddb2ed459e85e0f5b3bc8265776',
   ]
   const mp = MidcontractProtocol.buildByEnvironment('test')
-  for (const id of list) {
-    const data = await mp.transactionByHash(id)
-    const {input, events} = await mp.transactionParse(data)
-    const msg = [input.functionName]
-    if (input.functionName === 'deposit') {
-      const event = events[0]
-      const {symbol, amount} = mp.parseAmount(event.args.token, event.args.amount)
-      msg.push(symbol)
-      msg.push(amount)
-    }
-    console.log(msg.join(' '))
+  for (const hash of list) {
+    const data = await mp.transactionByHash(hash)
+    console.log(await mp.transactionParse(data))
   }
   console.log("END")
 }

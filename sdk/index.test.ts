@@ -43,6 +43,10 @@ describe("base", async () => {
     });
   });
 
+  it("getDepositList", async () => {
+    expect(await mp.getDepositList(404n)).toEqual(null);
+  });
+
   it("success flow Fixed Price", async () => {
     const amount = 100;
     const { depositId, data, recipientData, aliceBalance, bobBalance } = await newData();

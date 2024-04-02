@@ -81,6 +81,8 @@ export interface TransactionId {
   status: TransactionStatus;
 }
 
+export const ZeroAddress = "0x0000000000000000000000000000000000000000";
+
 export class MidcontractProtocol {
   private readonly contractList: ContractList;
   private escrow: Address;
@@ -305,7 +307,7 @@ export class MidcontractProtocol {
     });
   }
 
-  async getDepositList(depositId: bigint): Promise<Deposit> {
+  async getDepositList(depositId: bigint): Promise<Deposit | null> {
     const data = await this.public.readContract({
       address: this.escrow,
       abi: escrow,
@@ -327,7 +329,7 @@ export class MidcontractProtocol {
         ]);
       }
     }
-    throw new NotFoundError();
+    return null;
   }
 
   private async getTransactionReceipt(hash: Hash, waitReceipt = false): Promise<TransactionReceipt | null> {
@@ -377,6 +379,13 @@ export class MidcontractProtocol {
   }
 
   async escrowSubmit(depositId: bigint, data: string, waitReceipt = true): Promise<TransactionId> {
+    const deposit = await this.getDepositList(depositId);
+    if (deposit && deposit.recipient.toString() != ZeroAddress) {
+      return {
+        id: "0x0",
+        status: "success",
+      };
+    }
     const { request } = await this.public.simulateContract({
       address: this.escrow,
       abi: escrow,
@@ -403,13 +412,16 @@ export class MidcontractProtocol {
     input.token = input.token || "USDT";
     input.valueApprove = input.valueApprove || 0;
     input.valueAdditional = input.valueAdditional || 0;
-    const recipient = input.recipient || "0x0000000000000000000000000000000000000000";
+    const recipient = input.recipient || ZeroAddress;
     if (input.valueApprove == 0 && input.valueAdditional == 0) {
       throw new NotSetError("valueAdditional");
     }
     const account = this.account;
     if (input.valueAdditional > 0) {
       const deposit = await this.getDepositList(input.depositId);
+      if (!deposit) {
+        throw new NotFoundError(`deposit ${input.depositId}`)
+      }
       const { depositAmount } = await this.escrowDepositAmount(input.valueAdditional, deposit.configFee);
       await this.tokenRequireAllowance(account.address, depositAmount, input.token);
     }

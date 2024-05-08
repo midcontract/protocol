@@ -1,900 +1,248 @@
 export const escrow = [
+  { inputs: [], name: "Escrow__AlreadyInitialized", type: "error" },
+  { inputs: [], name: "Escrow__FeeTooHigh", type: "error" },
+  { inputs: [], name: "Escrow__InvalidAmount", type: "error" },
+  { inputs: [], name: "Escrow__InvalidContractorDataHash", type: "error" },
+  { inputs: [], name: "Escrow__InvalidFeeConfig", type: "error" },
+  { inputs: [], name: "Escrow__InvalidStatusForApprove", type: "error" },
+  { inputs: [], name: "Escrow__InvalidStatusForSubmit", type: "error" },
+  { inputs: [], name: "Escrow__InvalidStatusForWithdraw", type: "error" },
+  { inputs: [], name: "Escrow__NotApproved", type: "error" },
+  { inputs: [], name: "Escrow__NotEnoughDeposit", type: "error" },
+  { inputs: [], name: "Escrow__NotSetFeeManager", type: "error" },
+  { inputs: [], name: "Escrow__NotSupportedPaymentToken", type: "error" },
   {
-    type: "constructor",
-    inputs: [],
-    stateMutability: "nonpayable",
+    inputs: [{ internalType: "address", name: "account", type: "address" }],
+    name: "Escrow__UnauthorizedAccount",
+    type: "error",
   },
+  { inputs: [], name: "Escrow__UnauthorizedReceiver", type: "error" },
+  { inputs: [], name: "Escrow__ZeroAddressProvided", type: "error" },
+  { inputs: [], name: "Escrow__ZeroDepositAmount", type: "error" },
+  { inputs: [], name: "NewOwnerIsZeroAddress", type: "error" },
+  { inputs: [], name: "Unauthorized", type: "error" },
   {
-    type: "function",
-    name: "DEFAULT_ADMIN_ROLE",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "FEE_DENOMINATOR",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "addToken",
+    anonymous: false,
     inputs: [
-      {
-        name: "value",
-        type: "address",
-        internalType: "address",
-      },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "amountApprove", type: "uint256" },
+      { indexed: true, internalType: "address", name: "receiver", type: "address" },
     ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "approve",
-    inputs: [
-      {
-        name: "depositId",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "valueApprove",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "valueAdditional",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "recipient",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "calcClaim",
-    inputs: [
-      {
-        name: "amount",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "fullFee",
-        type: "bool",
-        internalType: "bool",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "calcDeposit",
-    inputs: [
-      {
-        name: "amount",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "fullFee",
-        type: "bool",
-        internalType: "bool",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "changePayeeFee",
-    inputs: [
-      {
-        name: "value",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "changeRecipientFee",
-    inputs: [
-      {
-        name: "value",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "changeVault",
-    inputs: [
-      {
-        name: "value",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "claim",
-    inputs: [
-      {
-        name: "depositId",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "deposit",
-    inputs: [
-      {
-        name: "depositId",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "token",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "amount",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "timeLock",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "fullFee",
-        type: "bool",
-        internalType: "bool",
-      },
-      {
-        name: "recipientData",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "depositList",
-    inputs: [
-      {
-        name: "id",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    outputs: [
-      {
-        name: "payee",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "recipient",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "token",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "amount",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "amountToClaim",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "status",
-        type: "uint8",
-        internalType: "enum IEscrow.Status",
-      },
-      {
-        name: "timeLock",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "configFee",
-        type: "bool",
-        internalType: "bool",
-      },
-      {
-        name: "recipientData",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "feeAmount",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "getRoleAdmin",
-    inputs: [
-      {
-        name: "role",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "grantRole",
-    inputs: [
-      {
-        name: "role",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-      {
-        name: "account",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "hasRole",
-    inputs: [
-      {
-        name: "role",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-      {
-        name: "account",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "bool",
-        internalType: "bool",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "makeDataHash",
-    inputs: [
-      {
-        name: "data",
-        type: "string",
-        internalType: "string",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-    ],
-    stateMutability: "pure",
-  },
-  {
-    type: "function",
-    name: "payeeFee",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "recipientFee",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "removeToken",
-    inputs: [
-      {
-        name: "value",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "renounceRole",
-    inputs: [
-      {
-        name: "role",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-      {
-        name: "callerConfirmation",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "revokeRole",
-    inputs: [
-      {
-        name: "role",
-        type: "bytes32",
-        internalType: "bytes32",
-      },
-      {
-        name: "account",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "submit",
-    inputs: [
-      {
-        name: "depositId",
-        type: "uint256",
-        internalType: "uint256",
-      },
-      {
-        name: "data",
-        type: "string",
-        internalType: "string",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "function",
-    name: "supportsInterface",
-    inputs: [
-      {
-        name: "interfaceId",
-        type: "bytes4",
-        internalType: "bytes4",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "bool",
-        internalType: "bool",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "tokenList",
-    inputs: [
-      {
-        name: "token",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "whitelisted",
-        type: "bool",
-        internalType: "bool",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "vault",
-    inputs: [],
-    outputs: [
-      {
-        name: "",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "whitelist",
-    inputs: [
-      {
-        name: "value",
-        type: "address",
-        internalType: "address",
-      },
-    ],
-    outputs: [
-      {
-        name: "",
-        type: "bool",
-        internalType: "bool",
-      },
-    ],
-    stateMutability: "view",
-  },
-  {
-    type: "function",
-    name: "withdraw",
-    inputs: [
-      {
-        name: "depositId",
-        type: "uint256",
-        internalType: "uint256",
-      },
-    ],
-    outputs: [],
-    stateMutability: "nonpayable",
-  },
-  {
-    type: "event",
     name: "Approved",
-    inputs: [
-      {
-        name: "depositId",
-        type: "uint256",
-        indexed: true,
-        internalType: "uint256",
-      },
-      {
-        name: "amount",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "recipient",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-    ],
-    anonymous: false,
+    type: "event",
   },
   {
-    type: "event",
-    name: "DepositClaimed",
-    inputs: [
-      {
-        name: "depositId",
-        type: "uint256",
-        indexed: true,
-        internalType: "uint256",
-      },
-      {
-        name: "recipient",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "token",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "amount",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-    ],
     anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "paymentToken", type: "address" },
+      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+    ],
+    name: "Claimed",
+    type: "event",
   },
   {
-    type: "event",
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "paymentToken", type: "address" },
+      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "timeLock", type: "uint256" },
+      { indexed: false, internalType: "enum Enums.FeeConfig", name: "feeConfig", type: "uint8" },
+    ],
     name: "Deposited",
-    inputs: [
-      {
-        name: "depositId",
-        type: "uint256",
-        indexed: true,
-        internalType: "uint256",
-      },
-      {
-        name: "payee",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "token",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "amount",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "timeLock",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-      {
-        name: "allFee",
-        type: "bool",
-        indexed: false,
-        internalType: "bool",
-      },
-    ],
-    anonymous: false,
+    type: "event",
   },
   {
-    type: "event",
-    name: "FeeClaimed",
-    inputs: [
-      {
-        name: "amount",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-    ],
     anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "oldOwner", type: "address" },
+      { indexed: true, internalType: "address", name: "newOwner", type: "address" },
+    ],
+    name: "OwnershipTransferred",
+    type: "event",
   },
   {
-    type: "event",
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "amountAdditional", type: "uint256" },
+    ],
     name: "Refilled",
-    inputs: [
-      {
-        name: "depositId",
-        type: "uint256",
-        indexed: true,
-        internalType: "uint256",
-      },
-      {
-        name: "amountAdditional",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-    ],
-    anonymous: false,
+    type: "event",
   },
   {
-    type: "event",
-    name: "RoleAdminChanged",
-    inputs: [
-      {
-        name: "role",
-        type: "bytes32",
-        indexed: true,
-        internalType: "bytes32",
-      },
-      {
-        name: "previousAdminRole",
-        type: "bytes32",
-        indexed: true,
-        internalType: "bytes32",
-      },
-      {
-        name: "newAdminRole",
-        type: "bytes32",
-        indexed: true,
-        internalType: "bytes32",
-      },
-    ],
     anonymous: false,
+    inputs: [{ indexed: false, internalType: "address", name: "registry", type: "address" }],
+    name: "RegistryUpdated",
+    type: "event",
   },
   {
-    type: "event",
-    name: "RoleGranted",
-    inputs: [
-      {
-        name: "role",
-        type: "bytes32",
-        indexed: true,
-        internalType: "bytes32",
-      },
-      {
-        name: "account",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "sender",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-    ],
     anonymous: false,
-  },
-  {
-    type: "event",
-    name: "RoleRevoked",
     inputs: [
-      {
-        name: "role",
-        type: "bytes32",
-        indexed: true,
-        internalType: "bytes32",
-      },
-      {
-        name: "account",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "sender",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
     ],
-    anonymous: false,
-  },
-  {
-    type: "event",
     name: "Submitted",
-    inputs: [
-      {
-        name: "depositId",
-        type: "uint256",
-        indexed: true,
-        internalType: "uint256",
-      },
-      {
-        name: "recipient",
-        type: "address",
-        indexed: false,
-        internalType: "address",
-      },
-    ],
-    anonymous: false,
-  },
-  {
     type: "event",
-    name: "Withdrawn",
-    inputs: [
-      {
-        name: "depositId",
-        type: "uint256",
-        indexed: true,
-        internalType: "uint256",
-      },
-      {
-        name: "payee",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "token",
-        type: "address",
-        indexed: true,
-        internalType: "address",
-      },
-      {
-        name: "amount",
-        type: "uint256",
-        indexed: false,
-        internalType: "uint256",
-      },
-    ],
+  },
+  {
     anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "paymentToken", type: "address" },
+      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+    ],
+    name: "Withdrawn",
+    type: "event",
   },
   {
-    type: "error",
-    name: "AccessControlBadConfirmation",
+    inputs: [
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
+      { internalType: "uint256", name: "_amountApprove", type: "uint256" },
+      { internalType: "uint256", name: "_amountAdditional", type: "uint256" },
+      { internalType: "address", name: "_receiver", type: "address" },
+    ],
+    name: "approve",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "_contractId", type: "uint256" }],
+    name: "claim",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
     inputs: [],
+    name: "client",
+    outputs: [{ internalType: "address", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
   },
   {
-    type: "error",
-    name: "AccessControlUnauthorizedAccount",
     inputs: [
       {
-        name: "account",
-        type: "address",
-        internalType: "address",
-      },
-      {
-        name: "neededRole",
-        type: "bytes32",
-        internalType: "bytes32",
+        components: [
+          { internalType: "address", name: "contractor", type: "address" },
+          { internalType: "address", name: "paymentToken", type: "address" },
+          { internalType: "uint256", name: "amount", type: "uint256" },
+          { internalType: "uint256", name: "amountToClaim", type: "uint256" },
+          { internalType: "uint256", name: "timeLock", type: "uint256" },
+          { internalType: "bytes32", name: "contractorData", type: "bytes32" },
+          { internalType: "enum Enums.FeeConfig", name: "feeConfig", type: "uint8" },
+          { internalType: "enum Enums.Status", name: "status", type: "uint8" },
+        ],
+        internalType: "struct IEscrow.Deposit",
+        name: "_deposit",
+        type: "tuple",
       },
     ],
+    name: "deposit",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    type: "error",
-    name: "AddressEmptyCode",
+    inputs: [{ internalType: "uint256", name: "contractId", type: "uint256" }],
+    name: "deposits",
+    outputs: [
+      { internalType: "address", name: "contractor", type: "address" },
+      { internalType: "address", name: "paymentToken", type: "address" },
+      { internalType: "uint256", name: "amount", type: "uint256" },
+      { internalType: "uint256", name: "amountToClaim", type: "uint256" },
+      { internalType: "uint256", name: "timeLock", type: "uint256" },
+      { internalType: "bytes32", name: "contractorData", type: "bytes32" },
+      { internalType: "enum Enums.FeeConfig", name: "feeConfig", type: "uint8" },
+      { internalType: "enum Enums.Status", name: "status", type: "uint8" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [
-      {
-        name: "target",
-        type: "address",
-        internalType: "address",
-      },
+      { internalType: "bytes", name: "_data", type: "bytes" },
+      { internalType: "bytes32", name: "_salt", type: "bytes32" },
     ],
+    name: "getContractorDataHash",
+    outputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
+    stateMutability: "pure",
+    type: "function",
   },
   {
-    type: "error",
-    name: "AddressInsufficientBalance",
+    inputs: [],
+    name: "getCurrentContractId",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [
-      {
-        name: "account",
-        type: "address",
-        internalType: "address",
-      },
+      { internalType: "address", name: "_client", type: "address" },
+      { internalType: "address", name: "_owner", type: "address" },
+      { internalType: "address", name: "_registry", type: "address" },
     ],
+    name: "initialize",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
   {
-    type: "error",
-    name: "CallOnlyByPayee",
     inputs: [],
+    name: "initialized",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
   },
   {
-    type: "error",
-    name: "CallOnlyByRecipient",
     inputs: [],
+    name: "owner",
+    outputs: [{ internalType: "address", name: "result", type: "address" }],
+    stateMutability: "view",
+    type: "function",
   },
   {
-    type: "error",
-    name: "CannotWithdrawAtThisStage",
     inputs: [],
+    name: "registry",
+    outputs: [{ internalType: "contract IRegistry", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
   },
   {
-    type: "error",
-    name: "DepositAlreadyExists",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "FailedInnerCall",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "NotApproved",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "NotBeSubmitted",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "NotEnoughDeposit",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "NotSupportToken",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "ReentrancyGuardReentrantCall",
-    inputs: [],
-  },
-  {
-    type: "error",
-    name: "SafeERC20FailedOperation",
     inputs: [
-      {
-        name: "token",
-        type: "address",
-        internalType: "address",
-      },
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
+      { internalType: "bytes", name: "_data", type: "bytes" },
+      { internalType: "bytes32", name: "_salt", type: "bytes32" },
     ],
+    name: "submit",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
+    name: "transferOwnership",
+    outputs: [],
+    stateMutability: "payable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "_registry", type: "address" }],
+    name: "updateRegistry",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "_contractId", type: "uint256" }],
+    name: "withdraw",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
   },
 ] as const;

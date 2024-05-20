@@ -9,12 +9,12 @@ interface ContractInput {
 }
 
 export interface EscrowDepositInput extends ContractInput {
-  depositId: bigint;
+  contractor: Address;
   tokenAddress: Address;
   tokenSymbol: SymbolToken;
   amount: number;
   timeLock: bigint;
-  fullFee: boolean;
+  feeConfig: number;
   recipientData: Hash;
 }
 
@@ -49,13 +49,13 @@ export function parseInput(data: Hex): TransactionInput {
     case "deposit":
       return {
         functionName: "deposit",
-        depositId: input.args[0],
-        tokenAddress: input.args[1],
+        contractor: input.args[0].contractor,
+        tokenAddress: input.args[0].paymentToken,
         tokenSymbol: "USDT", // FIXME remove hardcode
-        amount: Number(formatUnits(input.args[2], 18)), // FIXME remove hardcode
-        timeLock: input.args[3],
-        fullFee: input.args[4],
-        recipientData: input.args[5],
+        amount: Number(formatUnits(input.args[0].amount, 6)), // FIXME remove hardcode
+        timeLock: input.args[0].timeLock,
+        feeConfig: input.args[0].feeConfig,
+        recipientData: input.args[0].contractorData,
       } as EscrowDepositInput;
     case "withdraw":
       return {

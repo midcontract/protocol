@@ -4,7 +4,7 @@ import { NotSupportError } from "@/Error";
 
 export type Environment = "prod" | "beta" | "test" | "local";
 
-export type SymbolToken = "USDT" | "USDC";
+export type SymbolToken = "USDT" | "USDC" | "MockUSDT";
 
 export type DataToken = {
   symbol: SymbolToken;
@@ -25,12 +25,12 @@ export function* iterateTokenList(tokenList: TokenList): IterableIterator<DataTo
 
 export type ContractList = {
   chainName: string;
-  escrow: Array<Address>;
+  escrow: { [key: string]: Address };
   tokenList: TokenList;
 };
 
 export enum ChainID {
-  Localhost = 1337,
+  Localhost = 31337,
   Sepolia = 11_155_111,
   BlastSepolia = 168_587_773,
 }
@@ -41,14 +41,22 @@ export type EnvironmentList = Record<Environment, ChainList>;
 
 export const environmentList: EnvironmentList = {
   local: {
-    1337: {
+    31337: {
       chainName: "Localhost",
-      escrow: ["0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"],
+      escrow: {
+        REGISTRY: "0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519",
+        MOCK_PAYMENT_TOKEN: "0x288f4508660A747C77A95D68D5b77eD89CdE9D03",
+        ESCROW: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+        FACTORY: "0x5b73C5498c1E3b4dbA84de0F1833c4a029d90519",
+        FEE_MANAGER: "0xA4857B1178425cfaaaeedBcFc220F242b4A518fA",
+        ESCROW_PROXY: "0xEAC34764333F697c31a7C72ee74ED33D1dEfff0d",
+        ADMIN: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      },
       tokenList: {
-        USDT: {
-          symbol: "USDT",
+        MockUSDT: {
+          symbol: "MockUSDT",
           address: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-          decimals: 18,
+          decimals: 6,
         },
       },
     },
@@ -56,16 +64,20 @@ export const environmentList: EnvironmentList = {
   test: {
     11_155_111: {
       chainName: "Sepolia",
-      escrow: [
-        "0x4ae3faf19394532c9a855eaa9fbb4442f99674bf",
-        "0x9F8cf2d0Fd356067835527ca03cb9B5a7c1435D0",
-        "0xc6F1B2Df92a852bd0B956eEe71B03c319f911ad1",
-      ],
+      escrow: {
+        REGISTRY: "0xcda8DF73fFA90c151879F0E5A46B2ad659502C73",
+        MOCK_PAYMENT_TOKEN: "0x288f4508660A747C77A95D68D5b77eD89CdE9D03",
+        ESCROW: "0x6ff9DFae2ca36CCd06f30Fb272bCcb2A88848568",
+        FACTORY: "0xE732a3625499885cE800f795A076C6Daf69e9E3d",
+        FEE_MANAGER: "0xA4857B1178425cfaaaeedBcFc220F242b4A518fA",
+        ESCROW_PROXY: "0xEAC34764333F697c31a7C72ee74ED33D1dEfff0d",
+        ADMIN: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      },
       tokenList: {
-        USDT: {
-          symbol: "USDT",
-          address: "0x563BbEC31968a3887B2e3e80e84640faEE54D094",
-          decimals: 18,
+        MockUSDT: {
+          symbol: "MockUSDT",
+          address: "0xa801061f49970Ef796e0fD0998348f3436ccCb1d",
+          decimals: 6,
         },
       },
     },
@@ -73,11 +85,15 @@ export const environmentList: EnvironmentList = {
   beta: {
     168_587_773: {
       chainName: "BlastSepolia",
-      escrow: [
-        "0xB83573bedA04Bb23b26917FaaD560cE51e2989Cc",
-        "0x902ecb004A246A5e4f7E8C4E5091865084A32fae",
-        "0x031d38e3353C1DCFD76d0618C4cF883882eed6C5",
-      ],
+      escrow: {
+        REGISTRY: "0xcda8DF73fFA90c151879F0E5A46B2ad659502C73",
+        MOCK_PAYMENT_TOKEN: "0x288f4508660A747C77A95D68D5b77eD89CdE9D03",
+        ESCROW: "0x6ff9DFae2ca36CCd06f30Fb272bCcb2A88848568",
+        FACTORY: "0xE732a3625499885cE800f795A076C6Daf69e9E3d",
+        FEE_MANAGER: "0xA4857B1178425cfaaaeedBcFc220F242b4A518fA",
+        ESCROW_PROXY: "0xEAC34764333F697c31a7C72ee74ED33D1dEfff0d",
+        ADMIN: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+      },
       tokenList: {
         USDT: {
           symbol: "USDT",

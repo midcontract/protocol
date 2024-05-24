@@ -103,7 +103,6 @@ export const escrow = [
     inputs: [
       { internalType: "uint256", name: "_contractId", type: "uint256" },
       { internalType: "uint256", name: "_amountApprove", type: "uint256" },
-      { internalType: "uint256", name: "_amountAdditional", type: "uint256" },
       { internalType: "address", name: "_receiver", type: "address" },
     ],
     name: "approve",
@@ -204,6 +203,16 @@ export const escrow = [
     name: "owner",
     outputs: [{ internalType: "address", name: "result", type: "address" }],
     stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
+      { internalType: "uint256", name: "_amountAdditional", type: "uint256" },
+    ],
+    name: "refill",
+    outputs: [],
+    stateMutability: "nonpayable",
     type: "function",
   },
   {

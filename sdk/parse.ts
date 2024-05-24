@@ -78,8 +78,7 @@ export function parseInput(data: Hex): TransactionInput {
         functionName: "approve",
         depositId: input.args[0],
         valueApprove: Number(formatUnits(input.args[1], 18)), // FIXME remove hardcode
-        valueAdditional: Number(formatUnits(input.args[2], 18)), // FIXME remove hardcode
-        recipient: input.args[3],
+        recipient: input.args[2],
       } as EscrowApproveInput;
     default:
       throw new NotMatchError("input data");

@@ -49,7 +49,6 @@ import { blastSepolia } from "@/chain/blastSepolia";
 import { parseInput, type TransactionInput } from "@/parse";
 import { EscrowFactoryService } from "@/escrowFactory/escrowFactoryService";
 import { FeeManager } from "@/feeManager/feeManager";
-import * as ethers from "ethers";
 import { Deposit, DepositStatus, type FeeConfig } from "@/Deposit";
 
 export interface DepositAmount {
@@ -127,7 +126,6 @@ export class MidcontractProtocol {
 
   static buildByEnvironment(name: Environment = "test", account?: Account, url?: string): MidcontractProtocol {
     let chain = localhost as Chain;
-
     if (name == "test") {
       chain = sepolia;
     } else if (name == "beta") {
@@ -323,8 +321,14 @@ export class MidcontractProtocol {
     }
   }
 
-  escrowMakeSalt(salt: string): Hash {
-    return ethers.keccak256(ethers.solidityPacked(["uint256"], [salt])) as Hash;
+  escrowMakeSalt(salt: number): Hash {
+    return this.numberToBytes32(salt);
+  }
+
+  private numberToBytes32(number: number): `0x${string}` {
+    let hexString = number.toString(16);
+    hexString = hexString.padStart(64, "0");
+    return `0x${hexString}`;
   }
 
   async escrowMakeDataHash(data: string, salt: Hash): Promise<Hash> {
@@ -427,21 +431,34 @@ export class MidcontractProtocol {
     }
   }
 
-  escrowRefill(contractId: bigint, value: number, waitReceipt = true): Promise<TransactionId> {
-    return this.escrowApprove(
-      {
-        contractId,
-        valueAdditional: value,
-      },
-      waitReceipt
-    );
+  async escrowRefill(contractId: bigint, value: number, waitReceipt = true): Promise<TransactionId> {
+    if (value == 0) {
+      throw new NotSetError("valueAdditional");
+    }
+
+    const deposit = await this.getDepositList(contractId);
+    const token = this.dataToken(deposit.paymentToken);
+    const account = this.account;
+    const { totalDepositAmount } = await this.escrowDepositAmount(value, deposit.feeConfig, deposit.paymentToken);
+    await this.tokenRequireAllowance(account.address, totalDepositAmount, deposit.paymentToken);
+
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrow,
+      account: this.account,
+      args: [contractId, parseUnits(value.toString(), token.decimals)],
+      functionName: "refill",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return { id: hash, status: receipt ? receipt.status : "pending" };
   }
 
   async escrowApprove(input: ApproveInput, waitReceipt = true): Promise<TransactionId> {
     input.token = input.token || "MockUSDT";
     input.valueApprove = input.valueApprove || 0;
     input.valueAdditional = input.valueAdditional || 0;
-    let recipient = input.recipient || "0x0000000000000000000000000000000000000000";
+    const recipient = input.recipient || "0x0000000000000000000000000000000000000000";
 
     if (input.valueApprove == 0 && input.valueAdditional == 0) {
       throw new NotSetError("valueAdditional");
@@ -450,26 +467,14 @@ export class MidcontractProtocol {
     const token = this.dataToken(input.token);
     const account = this.account;
     if (input.valueAdditional > 0) {
-      const deposit = await this.getDepositList(input.contractId);
-      const { totalDepositAmount } = await this.escrowDepositAmount(
-        input.valueAdditional,
-        deposit.feeConfig,
-        input.token
-      );
-      await this.tokenRequireAllowance(account.address, totalDepositAmount, input.token);
-      recipient = deposit.contractor;
+      return await this.escrowRefill(input.contractId, input.valueAdditional);
     }
 
     const { request } = await this.public.simulateContract({
       address: this.escrow,
       abi: escrow,
-      account: this.account,
-      args: [
-        input.contractId,
-        parseUnits(input.valueApprove.toString(), token.decimals),
-        parseUnits(input.valueAdditional.toString(), token.decimals),
-        recipient,
-      ],
+      account,
+      args: [input.contractId, parseUnits(input.valueApprove.toString(), token.decimals), recipient],
       functionName: "approve",
     });
     const hash = await this.send(request);
@@ -509,7 +514,7 @@ export class MidcontractProtocol {
   }> {
     const escrowFactoryService = new EscrowFactoryService(this.transport, this.factoryEscrow);
     const contractAddress = await escrowFactoryService.deploy(this.account, adminAddress, this.registryEscrow);
-    const salt = this.generateRandomString(5);
+    const salt = this.generateRandomNumber();
     return {
       userEscrow: contractAddress,
       salt,
@@ -597,17 +602,10 @@ export class MidcontractProtocol {
     return this.wallet.writeContract(input);
   }
 
-  private generateRandomString(length: number): Hash {
-    const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+=";
-    let result = "";
-    const charactersLength = characters.length;
+  private generateRandomNumber(): Hash {
+    const randomNumber = Math.floor(Math.random() * 999) + 1;
 
-    for (let i = 0; i < length; i++) {
-      const randomIndex = Math.floor(Math.random() * charactersLength);
-      result += characters.charAt(randomIndex);
-    }
-
-    return this.escrowMakeSalt(result);
+    return this.escrowMakeSalt(randomNumber);
   }
 
   transactionUrl(transactionHash: Hash): string {

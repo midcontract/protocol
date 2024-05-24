@@ -18,7 +18,7 @@ const mp = MidcontractProtocol.buildByEnvironment("test", undefined);
 async function newData() {
   const depositId = getDepositId();
   const data = getData();
-  const salt = mp.escrowMakeSalt("42");
+  const salt = mp.escrowMakeSalt(42);
   const recipientData = await mp.escrowMakeDataHash(data, salt);
   const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
   const bobBalance = await mp.tokenBalance(bob.address, "MockUSDT");
@@ -181,6 +181,11 @@ describe("base", async () => {
     expect(milestone1Claim.status).toEqual("success");
     expect(await mp.tokenBalance(bob.address)).toEqual(bobBalance + amount);
 
+    // submit milestone2 by freelancer
+    mp.changeAccount(bob);
+    const escrowSubmitMilestone2 = await mp.escrowSubmit(contractId, salt, data);
+    expect(escrowSubmitMilestone2.status).toEqual("success");
+
     // approve and claim milestone2
     mp.changeAccount(alice);
     const milestone2Approve = await mp.escrowApprove({
@@ -194,6 +199,11 @@ describe("base", async () => {
     const milestone2Claim = await mp.escrowClaim(contractId);
     expect(milestone2Claim.status).toEqual("success");
     expect(await mp.tokenBalance(bob.address)).toEqual(bobBalance + amount * 2);
+
+    // submit milestone3 by freelancer
+    mp.changeAccount(bob);
+    const escrowSubmitMilestone3 = await mp.escrowSubmit(contractId, salt, data);
+    expect(escrowSubmitMilestone3.status).toEqual("success");
 
     // approve and claim milestone3
     mp.changeAccount(alice);

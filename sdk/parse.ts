@@ -3,6 +3,7 @@ import type { Hex } from "viem/types/misc";
 import { escrow } from "@/abi/Escrow";
 import { NotMatchError } from "@/Error";
 import type { SymbolToken } from "@/environment";
+import { DepositStatus, type DisputeWinner } from "@/Deposit";
 
 interface ContractInput {
   functionName: string;
@@ -36,6 +37,35 @@ export interface EscrowApproveInput extends ContractInput {
   valueApprove: number;
   valueAdditional: number;
   recipient: Address;
+}
+
+export interface EscrowRefillInput extends ContractInput {
+  depositId: bigint;
+  valueAdditional: number;
+}
+
+export interface EscrowCreateReturnRequest extends ContractInput {
+  depositId: bigint;
+}
+
+export interface EscrowApproveReturnRequest extends ContractInput {
+  depositId: bigint;
+}
+
+export interface EscrowCancelReturnRequest extends ContractInput {
+  depositId: bigint;
+  status: DepositStatus;
+}
+
+export interface EscrowCreateDispute extends ContractInput {
+  depositId: bigint;
+}
+
+export interface EscrowResolveDisputeInput extends ContractInput {
+  depositId: bigint;
+  winner: DisputeWinner;
+  clientAmount: number;
+  contractorAmount: number;
 }
 
 export type TransactionInput = EscrowDepositInput | EscrowWithdrawInput;
@@ -77,9 +107,44 @@ export function parseInput(data: Hex): TransactionInput {
       return {
         functionName: "approve",
         depositId: input.args[0],
-        valueApprove: Number(formatUnits(input.args[1], 18)), // FIXME remove hardcode
+        valueApprove: Number(formatUnits(input.args[1], 6)), // FIXME remove hardcode
         recipient: input.args[2],
       } as EscrowApproveInput;
+    case "refill":
+      return {
+        functionName: "refill",
+        depositId: input.args[0],
+        valueAdditional: Number(formatUnits(input.args[1], 6)),
+      } as EscrowRefillInput;
+    case "requestReturn":
+      return {
+        functionName: "requestReturn",
+        depositId: input.args[0],
+      } as EscrowCreateReturnRequest;
+    case "approveReturn":
+      return {
+        functionName: "requestReturn",
+        depositId: input.args[0],
+      } as EscrowApproveReturnRequest;
+    case "cancelReturn":
+      return {
+        functionName: "cancelReturn",
+        depositId: input.args[0],
+        status: input.args[1],
+      } as EscrowCancelReturnRequest;
+    case "createDispute":
+      return {
+        functionName: "createDispute",
+        depositId: input.args[0],
+      } as EscrowCreateDispute;
+    case "resolveDispute":
+      return {
+        functionName: "resolveDispute",
+        depositId: input.args[0],
+        winner: input.args[1],
+        clientAmount: Number(formatUnits(input.args[2], 6)),
+        contractorAmount: Number(formatUnits(input.args[3], 6)),
+      } as EscrowResolveDisputeInput;
     default:
       throw new NotMatchError("input data");
   }

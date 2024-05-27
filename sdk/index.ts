@@ -11,6 +11,7 @@ import {
   type EIP1193Provider,
   type RpcLog,
   type Log,
+  toHex,
 } from "viem";
 import {
   createWalletClient,
@@ -47,13 +48,19 @@ import {
 } from "@/Error";
 import { blastSepolia } from "@/chain/blastSepolia";
 import { parseInput, type TransactionInput } from "@/parse";
-import { EscrowFactoryService } from "@/escrowFactory/escrowFactoryService";
 import { FeeManager } from "@/feeManager/feeManager";
-import { Deposit, DepositStatus, type FeeConfig } from "@/Deposit";
+import { Deposit, DepositStatus, DisputeWinner, type FeeConfig } from "@/Deposit";
+import { escrowFactoryAbi } from "@/abi/EscrowFactory";
 
 export interface DepositAmount {
   totalDepositAmount: number;
   feeApplied: number;
+}
+
+export interface ClaimableAmount {
+  claimableAmount: number;
+  feeDeducted: number;
+  clientFee: number;
 }
 
 export interface DepositInput {
@@ -61,6 +68,7 @@ export interface DepositInput {
   token: SymbolToken;
   amount: number;
   amountToClaim?: number;
+  amountToWithdraw?: number;
   timeLock?: bigint;
   recipientData: Hash;
   feeConfig: FeeConfig;
@@ -102,7 +110,7 @@ export class MidcontractProtocol {
   private readonly factoryEscrow: Address;
   private readonly registryEscrow: Address;
   private readonly feeManagerEscrow: Address;
-  private readonly transport: HttpTransport;
+  private readonly ownerAddress: Address;
 
   constructor(chain: Chain, transport: HttpTransport, contractList: ContractList, account?: Account) {
     this.contractList = contractList;
@@ -121,7 +129,7 @@ export class MidcontractProtocol {
     this.factoryEscrow = contractList.escrow["FACTORY"] as Address;
     this.registryEscrow = contractList.escrow["REGISTRY"] as Address;
     this.feeManagerEscrow = contractList.escrow["FEE_MANAGER"] as Address;
-    this.transport = transport;
+    this.ownerAddress = contractList.escrow["ADMIN"] as Address;
   }
 
   static buildByEnvironment(name: Environment = "test", account?: Account, url?: string): MidcontractProtocol {
@@ -191,15 +199,56 @@ export class MidcontractProtocol {
     feeConfig: FeeConfig = 1,
     tokenSymbol: SymbolToken = "MockUSDT"
   ): Promise<DepositAmount> {
-    const token = this.dataToken(tokenSymbol);
-    const convertedAmount = parseUnits(amount.toString(), token.decimals);
+    const tokenData = this.dataToken(tokenSymbol);
+    const convertedAmount = parseUnits(amount.toString(), tokenData.decimals);
     const feeManager = new FeeManager(this.wallet, this.public, this.account, this.feeManagerEscrow);
     const { totalDepositAmount, feeApplied } = await feeManager.computeDepositAmountAndFee(convertedAmount, feeConfig);
 
     return {
-      totalDepositAmount: Number(totalDepositAmount),
-      feeApplied: Number(feeApplied),
+      totalDepositAmount: Number(totalDepositAmount) / Math.pow(10, tokenData.decimals),
+      feeApplied: Number(feeApplied) / Math.pow(10, tokenData.decimals),
     };
+  }
+
+  async escrowClaimableAmount(
+    amount: number,
+    feeConfig: FeeConfig = 1,
+    tokenSymbol: SymbolToken = "MockUSDT"
+  ): Promise<ClaimableAmount> {
+    const tokenData = this.dataToken(tokenSymbol);
+    const convertedAmount = parseUnits(amount.toString(), tokenData.decimals);
+    const feeManager = new FeeManager(this.wallet, this.public, this.account, this.feeManagerEscrow);
+    const { claimableAmount, feeDeducted, clientFee } = await feeManager.computeClaimableAmountAndFee(
+      convertedAmount,
+      feeConfig
+    );
+
+    return {
+      claimableAmount: Number(claimableAmount) / Math.pow(10, tokenData.decimals),
+      feeDeducted: Number(feeDeducted) / Math.pow(10, tokenData.decimals),
+      clientFee: Number(clientFee) / Math.pow(10, tokenData.decimals),
+    };
+  }
+
+  async getCoverageFee(): Promise<number> {
+    const feeManager = new FeeManager(this.wallet, this.public, this.account, this.feeManagerEscrow);
+    const { coverageFee } = await feeManager.getCoverageFee();
+
+    return Number(coverageFee);
+  }
+
+  async getClaimFee(): Promise<number> {
+    const feeManager = new FeeManager(this.wallet, this.public, this.account, this.feeManagerEscrow);
+    const { claimFee } = await feeManager.getClaimFee();
+
+    return Number(claimFee);
+  }
+
+  async getMaxBPS(): Promise<number> {
+    const feeManager = new FeeManager(this.wallet, this.public, this.account, this.feeManagerEscrow);
+    const bps = await feeManager.getBPS();
+
+    return Number(bps);
   }
 
   async getDepositList(contractId: bigint): Promise<Deposit> {
@@ -217,10 +266,11 @@ export class MidcontractProtocol {
           token.symbol,
           Number(formatUnits(data[2], token.decimals)),
           Number(formatUnits(data[3], token.decimals)),
-          data[4],
+          Number(formatUnits(data[4], token.decimals)),
           data[5],
           data[6],
           data[7],
+          data[8],
         ]);
       }
     }
@@ -255,7 +305,7 @@ export class MidcontractProtocol {
   }
 
   private async tokenAllowance(account: Address, symbol: SymbolToken = "MockUSDT"): Promise<number> {
-    const token = this.dataToken(symbol);
+    const token: DataToken = this.dataToken(symbol);
     const allowance = await this.public.readContract({
       abi: erc20Abi,
       address: token.address,
@@ -332,11 +382,11 @@ export class MidcontractProtocol {
   }
 
   async escrowMakeDataHash(data: string, salt: Hash): Promise<Hash> {
+    const encodedData = toHex(new TextEncoder().encode(data));
     const result = await this.public.readContract({
       address: this.escrow,
       abi: escrow,
-      account: this.account,
-      args: [data as Hash, salt],
+      args: [encodedData as Hash, salt],
       functionName: "getContractorDataHash",
     });
     console.log(result);
@@ -369,16 +419,14 @@ export class MidcontractProtocol {
     const account = this.account;
     const amount = parseUnits(input.amount.toString(), token.decimals);
     const amountToClaim = parseUnits(String(input.amountToClaim || 0), token.decimals);
+    const amountToWithdraw = parseUnits(String(input.amountToWithdraw || 0), token.decimals);
     const { totalDepositAmount } = await this.escrowDepositAmount(input.amount, input.feeConfig, input.token);
 
-    const status = input.status || DepositStatus.PENDING;
-    await this.tokenRequireBalance(account.address, totalDepositAmount / 1000000, input.token);
-    await this.tokenRequireAllowance(account.address, totalDepositAmount / 1000000, input.token);
+    const status = input.status || DepositStatus.ACTIVE;
+    await this.tokenRequireBalance(account.address, totalDepositAmount, input.token);
+    await this.tokenRequireAllowance(account.address, totalDepositAmount, input.token);
 
     try {
-      const balance = await this.public.getBalance({ address: this.account.address });
-      console.log("Баланс:", balance.toString());
-
       const data = await this.public.simulateContract({
         address: this.escrow,
         abi: escrow,
@@ -389,6 +437,7 @@ export class MidcontractProtocol {
             paymentToken: token.address,
             amount: amount,
             amountToClaim: amountToClaim,
+            amountToWithdraw: amountToWithdraw,
             timeLock: input.timeLock,
             contractorData: input.recipientData,
             feeConfig: input.feeConfig,
@@ -412,11 +461,12 @@ export class MidcontractProtocol {
 
   async escrowSubmit(contractId: bigint, salt: Hash, data: string, waitReceipt = true): Promise<TransactionId> {
     try {
+      const encodedData = toHex(new TextEncoder().encode(data));
       const { request } = await this.public.simulateContract({
         address: this.escrow,
         abi: escrow,
         account: this.account,
-        args: [contractId, data as Hash, salt],
+        args: [contractId, encodedData, salt],
         functionName: "submit",
       });
       const hash = await this.send(request);
@@ -439,7 +489,7 @@ export class MidcontractProtocol {
     const deposit = await this.getDepositList(contractId);
     const token = this.dataToken(deposit.paymentToken);
     const account = this.account;
-    const { totalDepositAmount } = await this.escrowDepositAmount(value, deposit.feeConfig, deposit.paymentToken);
+    const { totalDepositAmount } = await this.escrowDepositAmount(value, deposit.feeConfig);
     await this.tokenRequireAllowance(account.address, totalDepositAmount, deposit.paymentToken);
 
     const { request } = await this.public.simulateContract({
@@ -508,15 +558,97 @@ export class MidcontractProtocol {
     return { id: hash, status: receipt ? receipt.status : "pending" };
   }
 
-  async deployEscrow(adminAddress: Address): Promise<{
+  async requestReturn(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrow,
+      account: this.account,
+      args: [contractId],
+      functionName: "requestReturn",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return { id: hash, status: receipt ? receipt.status : "pending" };
+  }
+
+  async approveReturn(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrow,
+      account: this.account,
+      args: [contractId],
+      functionName: "approveReturn",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return { id: hash, status: receipt ? receipt.status : "pending" };
+  }
+
+  async cancelReturn(contractId: bigint, status: DepositStatus, waitReceipt = true): Promise<TransactionId> {
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrow,
+      account: this.account,
+      args: [contractId, status],
+      functionName: "cancelReturn",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return { id: hash, status: receipt ? receipt.status : "pending" };
+  }
+
+  async createDispute(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrow,
+      account: this.account,
+      args: [contractId],
+      functionName: "createDispute",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return { id: hash, status: receipt ? receipt.status : "pending" };
+  }
+
+  async resolveDispute(
+    contractId: bigint,
+    winner: DisputeWinner,
+    clientAmount: number,
+    contractorAmount: number,
+    waitReceipt = true
+  ): Promise<TransactionId> {
+    const deposit = await this.getDepositList(contractId);
+    const token = this.dataToken(deposit.paymentToken);
+    const clientAmountConverted = clientAmount ? parseUnits(clientAmount.toString(), token.decimals) : 0n;
+    const contractorAmountConverted = contractorAmount ? parseUnits(contractorAmount.toString(), token.decimals) : 0n;
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrow,
+      account: this.account,
+      args: [contractId, winner, clientAmountConverted, contractorAmountConverted],
+      functionName: "resolveDispute",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return { id: hash, status: receipt ? receipt.status : "pending" };
+  }
+
+  async deployEscrow(): Promise<{
     userEscrow: Address;
     salt: Hash;
   }> {
-    const escrowFactoryService = new EscrowFactoryService(this.transport, this.factoryEscrow);
-    const contractAddress = await escrowFactoryService.deploy(this.account, adminAddress, this.registryEscrow);
+    const data = await this.public.simulateContract({
+      address: this.factoryEscrow,
+      abi: escrowFactoryAbi,
+      account: this.account,
+      args: [this.account.address, this.ownerAddress, this.registryEscrow],
+      functionName: "deployEscrow",
+    });
+    const hash = await this.send(data.request);
+    await this.getTransactionReceipt(hash, true);
     const salt = this.generateRandomNumber();
     return {
-      userEscrow: contractAddress,
+      userEscrow: data.result,
       salt,
     };
   }

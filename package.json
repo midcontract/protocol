@@ -46,7 +46,7 @@
     "build:remap": "forge remappings > remappings.txt",
     "build:sdk": "tsc && vite build && pnpm build:types",
     "build:types": "npx dts-bundle-generator --silent --no-check --out-file dist/index.d.ts sdk/index.ts",
-    "canary": "pnpm canary:version && npm publish --access public --tag canary",
+    "canary": "pnpm canary:version && npm publish --access public --tag canary --no-git-tag-version",
     "canary:version": "pnpm version --new-version $(jq -r .version package.json)-$(git log -n 1 --pretty=format:%h) --no-git-tag-version",
     "deploy:blast": "source .env && forge script Deployment --broadcast --rpc-url $BLAST_RPC --private-key $BLAST_DEPLOYER_PK --verifier-url $BLAST_VERIFIER_URL --etherscan-api-key $BLAST_ETHERSCAN_API_KEY",
     "deploy:blast-coin": "source .env && forge script TestCoinDeploy --broadcast --rpc-url $BLAST_RPC --private-key $BLAST_DEPLOYER_PK --verifier-url $BLAST_VERIFIER_URL --etherscan-api-key $BLAST_ETHERSCAN_API_KEY",

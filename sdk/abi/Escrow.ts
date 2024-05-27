@@ -1,22 +1,33 @@
 export const escrow = [
   { inputs: [], name: "Escrow__AlreadyInitialized", type: "error" },
+  { inputs: [], name: "Escrow__CreateDisputeNotAllowed", type: "error" },
+  { inputs: [], name: "Escrow__DisputeNotActiveForThisDeposit", type: "error" },
   { inputs: [], name: "Escrow__FeeTooHigh", type: "error" },
   { inputs: [], name: "Escrow__InvalidAmount", type: "error" },
   { inputs: [], name: "Escrow__InvalidContractorDataHash", type: "error" },
   { inputs: [], name: "Escrow__InvalidFeeConfig", type: "error" },
   { inputs: [], name: "Escrow__InvalidStatusForApprove", type: "error" },
   { inputs: [], name: "Escrow__InvalidStatusForSubmit", type: "error" },
-  { inputs: [], name: "Escrow__InvalidStatusForWithdraw", type: "error" },
+  { inputs: [], name: "Escrow__InvalidStatusProvided", type: "error" },
+  { inputs: [], name: "Escrow__InvalidStatusToClaim", type: "error" },
+  { inputs: [], name: "Escrow__InvalidStatusToWithdraw", type: "error" },
+  { inputs: [], name: "Escrow__InvalidWinnerSpecified", type: "error" },
+  { inputs: [], name: "Escrow__NoFundsAvailableForWithdraw", type: "error" },
+  { inputs: [], name: "Escrow__NoReturnRequested", type: "error" },
   { inputs: [], name: "Escrow__NotApproved", type: "error" },
   { inputs: [], name: "Escrow__NotEnoughDeposit", type: "error" },
   { inputs: [], name: "Escrow__NotSetFeeManager", type: "error" },
   { inputs: [], name: "Escrow__NotSupportedPaymentToken", type: "error" },
+  { inputs: [], name: "Escrow__ResolutionExceedsDepositedAmount", type: "error" },
+  { inputs: [], name: "Escrow__ReturnNotAllowed", type: "error" },
   {
     inputs: [{ internalType: "address", name: "account", type: "address" }],
     name: "Escrow__UnauthorizedAccount",
     type: "error",
   },
   { inputs: [], name: "Escrow__UnauthorizedReceiver", type: "error" },
+  { inputs: [], name: "Escrow__UnauthorizedToApproveDispute", type: "error" },
+  { inputs: [], name: "Escrow__UnauthorizedToApproveReturn", type: "error" },
   { inputs: [], name: "Escrow__ZeroAddressProvided", type: "error" },
   { inputs: [], name: "Escrow__ZeroDepositAmount", type: "error" },
   { inputs: [], name: "NewOwnerIsZeroAddress", type: "error" },
@@ -34,7 +45,6 @@ export const escrow = [
   {
     anonymous: false,
     inputs: [
-      { indexed: true, internalType: "address", name: "sender", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: true, internalType: "address", name: "paymentToken", type: "address" },
       { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
@@ -53,6 +63,26 @@ export const escrow = [
       { indexed: false, internalType: "enum Enums.FeeConfig", name: "feeConfig", type: "uint8" },
     ],
     name: "Deposited",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: false, internalType: "address", name: "sender", type: "address" },
+    ],
+    name: "DisputeCreated",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: false, internalType: "enum Enums.Winner", name: "winner", type: "uint8" },
+      { indexed: false, internalType: "uint256", name: "clientAmount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "contractorAmount", type: "uint256" },
+    ],
+    name: "DisputeResolved",
     type: "event",
   },
   {
@@ -82,6 +112,27 @@ export const escrow = [
   {
     anonymous: false,
     inputs: [
+      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: false, internalType: "address", name: "sender", type: "address" },
+    ],
+    name: "ReturnApproved",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [{ indexed: false, internalType: "uint256", name: "contractId", type: "uint256" }],
+    name: "ReturnCanceled",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [{ indexed: false, internalType: "uint256", name: "contractId", type: "uint256" }],
+    name: "ReturnRequested",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
       { indexed: true, internalType: "address", name: "sender", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
     ],
@@ -91,7 +142,6 @@ export const escrow = [
   {
     anonymous: false,
     inputs: [
-      { indexed: true, internalType: "address", name: "sender", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: true, internalType: "address", name: "paymentToken", type: "address" },
       { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
@@ -112,6 +162,23 @@ export const escrow = [
   },
   {
     inputs: [{ internalType: "uint256", name: "_contractId", type: "uint256" }],
+    name: "approveReturn",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
+      { internalType: "enum Enums.Status", name: "_status", type: "uint8" },
+    ],
+    name: "cancelReturn",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "_contractId", type: "uint256" }],
     name: "claim",
     outputs: [],
     stateMutability: "nonpayable",
@@ -125,6 +192,13 @@ export const escrow = [
     type: "function",
   },
   {
+    inputs: [{ internalType: "uint256", name: "_contractId", type: "uint256" }],
+    name: "createDispute",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
     inputs: [
       {
         components: [
@@ -132,6 +206,7 @@ export const escrow = [
           { internalType: "address", name: "paymentToken", type: "address" },
           { internalType: "uint256", name: "amount", type: "uint256" },
           { internalType: "uint256", name: "amountToClaim", type: "uint256" },
+          { internalType: "uint256", name: "amountToWithdraw", type: "uint256" },
           { internalType: "uint256", name: "timeLock", type: "uint256" },
           { internalType: "bytes32", name: "contractorData", type: "bytes32" },
           { internalType: "enum Enums.FeeConfig", name: "feeConfig", type: "uint8" },
@@ -155,6 +230,7 @@ export const escrow = [
       { internalType: "address", name: "paymentToken", type: "address" },
       { internalType: "uint256", name: "amount", type: "uint256" },
       { internalType: "uint256", name: "amountToClaim", type: "uint256" },
+      { internalType: "uint256", name: "amountToWithdraw", type: "uint256" },
       { internalType: "uint256", name: "timeLock", type: "uint256" },
       { internalType: "bytes32", name: "contractorData", type: "bytes32" },
       { internalType: "enum Enums.FeeConfig", name: "feeConfig", type: "uint8" },
@@ -199,6 +275,16 @@ export const escrow = [
     type: "function",
   },
   {
+    inputs: [
+      { internalType: "bytes32", name: "_hash", type: "bytes32" },
+      { internalType: "bytes", name: "_signature", type: "bytes" },
+    ],
+    name: "isValidSignature",
+    outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "owner",
     outputs: [{ internalType: "address", name: "result", type: "address" }],
@@ -220,6 +306,25 @@ export const escrow = [
     name: "registry",
     outputs: [{ internalType: "contract IRegistry", name: "", type: "address" }],
     stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "uint256", name: "_contractId", type: "uint256" }],
+    name: "requestReturn",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
+      { internalType: "enum Enums.Winner", name: "_winner", type: "uint8" },
+      { internalType: "uint256", name: "_clientAmount", type: "uint256" },
+      { internalType: "uint256", name: "_contractorAmount", type: "uint256" },
+    ],
+    name: "resolveDispute",
+    outputs: [],
+    stateMutability: "nonpayable",
     type: "function",
   },
   {

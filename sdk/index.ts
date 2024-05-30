@@ -311,8 +311,7 @@ export class MidcontractProtocol {
   async tokenRequireAllowance(owner: Address, amount: number, symbol: SymbolToken = "MockUSDT"): Promise<void> {
     const allowance = await this.tokenAllowance(owner, symbol);
     if (allowance < amount) {
-      const approveAmount = 1000;
-      // const approveAmount = amount - allowance;
+      const approveAmount = amount - allowance;
       const hash = await this.tokenApprove(approveAmount, symbol);
       const transaction = await this.public.waitForTransactionReceipt({ hash });
       if (transaction.status != "success") {

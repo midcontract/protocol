@@ -15,6 +15,12 @@ export enum FeeConfig {
   NO_FEES,
 }
 
+export enum DisputeWinner {
+  CLIENT,
+  CONTRACTOR,
+  SPLIT,
+}
+
 export class Deposit {
   readonly contractor: Address;
   readonly paymentToken: SymbolToken;

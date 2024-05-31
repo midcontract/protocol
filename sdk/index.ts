@@ -49,7 +49,7 @@ import { blastSepolia } from "@/chain/blastSepolia";
 import { parseInput, type TransactionInput } from "@/parse";
 import { EscrowFactoryService } from "@/escrowFactory/escrowFactoryService";
 import { FeeManager } from "@/feeManager/feeManager";
-import { Deposit, DepositStatus, type FeeConfig } from "@/Deposit";
+import { Deposit, DepositStatus, DisputeWinner, type FeeConfig } from "@/Deposit";
 
 export interface DepositAmount {
   totalDepositAmount: number;
@@ -501,6 +501,77 @@ export class MidcontractProtocol {
       account: this.account,
       args: [contractId],
       functionName: "withdraw",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return { id: hash, status: receipt ? receipt.status : "pending" };
+  }
+
+  async requestReturn(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrow,
+      account: this.account,
+      args: [contractId],
+      functionName: "requestReturn",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return { id: hash, status: receipt ? receipt.status : "pending" };
+  }
+
+  async approveReturn(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrow,
+      account: this.account,
+      args: [contractId],
+      functionName: "approveReturn",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return { id: hash, status: receipt ? receipt.status : "pending" };
+  }
+
+  async cancelReturn(contractId: bigint, status: DepositStatus, waitReceipt = true): Promise<TransactionId> {
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrow,
+      account: this.account,
+      args: [contractId, status],
+      functionName: "cancelReturn",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return { id: hash, status: receipt ? receipt.status : "pending" };
+  }
+
+  async createDispute(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrow,
+      account: this.account,
+      args: [contractId],
+      functionName: "createDispute",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return { id: hash, status: receipt ? receipt.status : "pending" };
+  }
+
+  async resolveDispute(
+    contractId: bigint,
+    winner: DisputeWinner,
+    clientAmount: number,
+    contractorAmount: number,
+    waitReceipt = true
+  ): Promise<TransactionId> {
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrow,
+      account: this.account,
+      args: [contractId, winner, BigInt(clientAmount), BigInt(contractorAmount)],
+      functionName: "resolveDispute",
     });
     const hash = await this.send(request);
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);

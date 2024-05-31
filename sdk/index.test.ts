@@ -10,8 +10,8 @@ const getData = () => getDepositId().toString();
 
 let userEscrow: Address;
 
-const alice = privateKeyToAccount("0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d");
-const bob = privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a");
+const alice = privateKeyToAccount("0xa6577cb260a8527a8602fd7b3c193ff8719eb8fd89de512e839284820ec1bba3");
+const bob = privateKeyToAccount("0x6e8a90f36ecbe6dd70073c8648d7acf0ea70ce4d6557862a8bbed7319cc52969");
 
 const mp = MidcontractProtocol.buildByEnvironment("test", undefined);
 
@@ -48,6 +48,199 @@ describe("getCurrentContractId", async () => {
   });
 });
 
+describe("Fees Manager", async () => {
+  const amount = 10;
+
+  beforeAll(async () => {
+    mp.changeAccount(alice);
+  });
+
+  describe("Get fees and max BPS", async () => {
+    it("getCoverageFee", async () => {
+      const coverageFee = await mp.getCoverageFee();
+
+      expect(coverageFee).toBeDefined();
+      expect(coverageFee).not.toBeNaN();
+    });
+
+    it("getCoverageFee", async () => {
+      const claimFee = await mp.getClaimFee();
+
+      expect(claimFee).toBeDefined();
+      expect(claimFee).not.toBeNaN();
+    });
+
+    it("get MaxBPS", async () => {
+      const maxBps = await mp.getMaxBPS();
+
+      expect(maxBps).toBeDefined();
+      expect(maxBps).not.toBeNaN();
+      expect(maxBps).toBeGreaterThanOrEqual(0);
+      expect(maxBps).toBeLessThanOrEqual(100);
+    });
+  });
+
+  describe("Calculate deposit amount", async () => {
+    let coverageFee: number;
+    let claimFee: number;
+
+    beforeAll(async () => {
+      coverageFee = await mp.getCoverageFee();
+
+      expect(coverageFee).toBeDefined();
+      expect(coverageFee).not.toBeNaN();
+      coverageFee = coverageFee / 100;
+
+      claimFee = await mp.getClaimFee();
+      expect(claimFee).toBeDefined();
+      expect(claimFee).not.toBeNaN();
+      claimFee = claimFee / 100;
+    });
+    it("Client covers all", async () => {
+      const feeApplied = amount * (coverageFee + claimFee);
+      const totalDepositAmount = amount + feeApplied;
+      const depositAmount = await mp.escrowDepositAmount(amount, FeeConfig.CLIENT_COVERS_ALL);
+
+      expect(depositAmount).toBeDefined();
+      expect(depositAmount.totalDepositAmount).toBeDefined();
+      expect(depositAmount.totalDepositAmount).not.toBeNaN();
+      expect(depositAmount.totalDepositAmount).toEqual(totalDepositAmount);
+      expect(depositAmount.feeApplied).toBeDefined();
+      expect(depositAmount.feeApplied).not.toBeNaN();
+      expect(depositAmount.feeApplied).toEqual(feeApplied);
+    });
+
+    it("Client covers only", async () => {
+      const feeApplied = amount * coverageFee;
+      const totalDepositAmount = amount + feeApplied;
+      const depositAmount = await mp.escrowDepositAmount(amount, FeeConfig.CLIENT_COVERS_ONLY);
+
+      expect(depositAmount).toBeDefined();
+      expect(depositAmount.totalDepositAmount).toBeDefined();
+      expect(depositAmount.totalDepositAmount).not.toBeNaN();
+      expect(depositAmount.totalDepositAmount).toEqual(totalDepositAmount);
+      expect(depositAmount.feeApplied).toBeDefined();
+      expect(depositAmount.feeApplied).not.toBeNaN();
+      expect(depositAmount.feeApplied).toEqual(feeApplied);
+    });
+
+    it("No fees", async () => {
+      const feeApplied = 0;
+      const totalDepositAmount = amount;
+      const depositAmount = await mp.escrowDepositAmount(amount, FeeConfig.CLIENT_COVERS_ONLY);
+
+      expect(depositAmount).toBeDefined();
+      expect(depositAmount.totalDepositAmount).toBeDefined();
+      expect(depositAmount.totalDepositAmount).not.toBeNaN();
+      expect(depositAmount.totalDepositAmount).toEqual(totalDepositAmount);
+      expect(depositAmount.feeApplied).toBeDefined();
+      expect(depositAmount.feeApplied).not.toBeNaN();
+      expect(depositAmount.feeApplied).toEqual(feeApplied);
+    });
+  });
+
+  describe("Calculate claimable amount", async () => {
+    let coverageFee: number;
+    let claimFee: number;
+
+    beforeAll(async () => {
+      coverageFee = await mp.getCoverageFee();
+
+      expect(coverageFee).toBeDefined();
+      expect(coverageFee).not.toBeNaN();
+      coverageFee = coverageFee / 100;
+
+      claimFee = await mp.getClaimFee();
+      expect(claimFee).toBeDefined();
+      expect(claimFee).not.toBeNaN();
+      claimFee = claimFee / 100;
+    });
+    it("Client covers all", async () => {
+      const feeDeducted = 0;
+      const clientFee = amount * (coverageFee + claimFee);
+      const totalDepositAmount = amount;
+      const depositAmount = await mp.escrowClaimableAmount(amount, FeeConfig.CLIENT_COVERS_ALL);
+
+      expect(depositAmount).toBeDefined();
+
+      expect(depositAmount.claimableAmount).toBeDefined();
+      expect(depositAmount.claimableAmount).not.toBeNaN();
+      expect(depositAmount.claimableAmount).toEqual(totalDepositAmount);
+
+      expect(depositAmount.feeDeducted).toBeDefined();
+      expect(depositAmount.feeDeducted).not.toBeNaN();
+      expect(depositAmount.feeDeducted).toEqual(feeDeducted);
+
+      expect(depositAmount.clientFee).toBeDefined();
+      expect(depositAmount.clientFee).not.toBeNaN();
+      expect(depositAmount.clientFee).toEqual(clientFee);
+    });
+
+    it("Contractor covers claim", async () => {
+      const clientFee = 0;
+      const feeDeducted = amount * claimFee;
+      const totalDepositAmount = amount - feeDeducted;
+      const depositAmount = await mp.escrowClaimableAmount(amount, FeeConfig.CLIENT_COVERS_ALL);
+
+      expect(depositAmount).toBeDefined();
+
+      expect(depositAmount.claimableAmount).toBeDefined();
+      expect(depositAmount.claimableAmount).not.toBeNaN();
+      expect(depositAmount.claimableAmount).toEqual(totalDepositAmount);
+
+      expect(depositAmount.feeDeducted).toBeDefined();
+      expect(depositAmount.feeDeducted).not.toBeNaN();
+      expect(depositAmount.feeDeducted).toEqual(feeDeducted);
+
+      expect(depositAmount.clientFee).toBeDefined();
+      expect(depositAmount.clientFee).not.toBeNaN();
+      expect(depositAmount.clientFee).toEqual(clientFee);
+    });
+
+    it("Client covers only", async () => {
+      const clientFee = amount * coverageFee;
+      const feeDeducted = amount * claimFee;
+      const totalDepositAmount = amount - feeDeducted;
+      const depositAmount = await mp.escrowClaimableAmount(amount, FeeConfig.CLIENT_COVERS_ALL);
+
+      expect(depositAmount).toBeDefined();
+
+      expect(depositAmount.claimableAmount).toBeDefined();
+      expect(depositAmount.claimableAmount).not.toBeNaN();
+      expect(depositAmount.claimableAmount).toEqual(totalDepositAmount);
+
+      expect(depositAmount.feeDeducted).toBeDefined();
+      expect(depositAmount.feeDeducted).not.toBeNaN();
+      expect(depositAmount.feeDeducted).toEqual(feeDeducted);
+
+      expect(depositAmount.clientFee).toBeDefined();
+      expect(depositAmount.clientFee).not.toBeNaN();
+      expect(depositAmount.clientFee).toEqual(clientFee);
+    });
+
+    it("No fees", async () => {
+      const clientFee = 0;
+      const feeDeducted = 0;
+      const totalDepositAmount = amount;
+      const depositAmount = await mp.escrowClaimableAmount(amount, FeeConfig.CLIENT_COVERS_ALL);
+
+      expect(depositAmount).toBeDefined();
+
+      expect(depositAmount.claimableAmount).toBeDefined();
+      expect(depositAmount.claimableAmount).not.toBeNaN();
+      expect(depositAmount.claimableAmount).toEqual(totalDepositAmount);
+
+      expect(depositAmount.feeDeducted).toBeDefined();
+      expect(depositAmount.feeDeducted).not.toBeNaN();
+      expect(depositAmount.feeDeducted).toEqual(feeDeducted);
+
+      expect(depositAmount.clientFee).toBeDefined();
+      expect(depositAmount.clientFee).not.toBeNaN();
+      expect(depositAmount.clientFee).toEqual(clientFee);
+    });
+  });
+});
+
 describe("base", async () => {
   beforeAll(async () => {
     mp.changeAccount(alice);
@@ -56,7 +249,7 @@ describe("base", async () => {
       userEscrow = deployEscrowResponse.userEscrow;
     }
     mp.changeEscrow(userEscrow);
-  });
+  }, 1200000);
   it("blockNumber", async () => {
     console.log(`blockNumber=${await mp.blockNumber}`);
     expect(await mp.blockNumber).greaterThan(1);

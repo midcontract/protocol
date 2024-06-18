@@ -1,6 +1,6 @@
 import { type Address, decodeFunctionData, formatUnits, type Hash } from "viem";
 import type { Hex } from "viem/types/misc";
-import { escrow } from "@/abi/Escrow";
+import { escrowHourly } from "@/abi/EscrowHourly";
 import { NotMatchError } from "@/Error";
 import type { SymbolToken } from "@/environment";
 import { DepositStatus, type DisputeWinner } from "@/Deposit";
@@ -72,7 +72,7 @@ export type TransactionInput = EscrowDepositInput | EscrowWithdrawInput;
 
 export function parseInput(data: Hex): TransactionInput {
   const input = decodeFunctionData({
-    abi: escrow,
+    abi: escrowHourly,
     data,
   });
   switch (input.functionName) {

@@ -11,8 +11,8 @@ const getData = () => getDepositId().toString();
 let userEscrow: Address;
 let userEscrowMilestone: Address;
 
-const alice = privateKeyToAccount("0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d");
-const bob = privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a");
+const alice = privateKeyToAccount("0x70d593122d403731db04f6e7632e5de732cabf7bab0ffc04b2ce435075edb9c4");
+const bob = privateKeyToAccount("0x6e8a90f36ecbe6dd70073c8648d7acf0ea70ce4d6557862a8bbed7319cc52969");
 
 const mp = MidcontractProtocol.buildByEnvironment("test", undefined);
 
@@ -38,8 +38,13 @@ describe("deployContract", async () => {
     mp.changeAccount(alice);
     const { userEscrow } = await mp.deployEscrow();
     expect(userEscrow).toBeDefined();
-  });
+  }, 1200000);
 });
+
+it("parse transaction", async () => {
+  const res = await mp.transactionByHashWait("0x0db6f530cfb93019f9aa2386e3b4b011266941dce384335ea837c1d462fd7f7c");
+  expect(res);
+}, 1200000);
 
 describe("getCurrentContractId", async () => {
   it("getCurrentContractId", async () => {
@@ -267,12 +272,19 @@ describe("base", async () => {
     });
   });
 
-  it("getTransactionByHash", async () => {
+  it("getTransactionReceipt", async () => {
     const transaction = await mp.getTransactionReceipt(
       "0xb2db7e406fa1ac415a14e4efc26e579472c0049de26f55b4da1033125b3ba502",
       true
     );
     expect(transaction).toBeDefined();
+  });
+
+  it("getTransactionByHash", async () => {
+    const transactionData = await mp.transactionByHash(
+      "0xe5a2752ba751cb71f4a7f8da521a3265c14e31301dc633b390571bd2547d5534"
+    );
+    expect(transactionData).toBeDefined();
   });
 
   it("success flow Fixed Price", async () => {
@@ -441,8 +453,10 @@ describe("base", async () => {
     mp.changeAccount(alice);
     const milestone3Approve = await mp.escrowApproveMilestone({
       contractId,
+      milestoneId: milestone3Id,
       valueApprove: amount,
       recipient: bob.address,
+      token: tokenSymbol,
     });
     expect(milestone3Approve.status).toEqual("success");
     expect((await mp.getDepositListMilestone(contractId, milestone3Id)).amountToClaim).toEqual(amount);

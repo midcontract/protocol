@@ -35,7 +35,7 @@ import {
   iterateTokenList,
   type SymbolToken,
 } from "@/environment";
-import { escrow } from "@/abi/Escrow";
+import { escrowHourly } from "@/abi/EscrowHourly";
 import {
   CoreMidcontractProtocolError,
   NotEnoughError,
@@ -51,6 +51,7 @@ import { parseInput, type TransactionInput } from "@/parse";
 import { FeeManager } from "@/feeManager/feeManager";
 import { Deposit, DepositStatus, DisputeWinner, type FeeConfig } from "@/Deposit";
 import { escrowFactoryAbi } from "@/abi/EscrowFactory";
+import { escrowMilestone } from "@/abi/EscrowMilestone";
 
 export interface DepositAmount {
   totalDepositAmount: number;
@@ -83,6 +84,14 @@ export interface ApproveInput {
   token?: SymbolToken;
 }
 
+export interface ApproveInputMilestone {
+  contractId: bigint;
+  milestoneId: bigint;
+  valueApprove: number;
+  recipient: Address;
+  token: SymbolToken;
+}
+
 export type TransactionStatus = "pending" | "success" | "reverted";
 
 export interface TransactionData {
@@ -101,6 +110,12 @@ export interface DepositResponse extends TransactionId {
   contractId: bigint;
 }
 
+export enum EscrowType {
+  FixedPrice,
+  Milestone,
+  Hourly,
+}
+
 export class MidcontractProtocol {
   private readonly contractList: ContractList;
   private escrow: Address = "0x0";
@@ -111,8 +126,17 @@ export class MidcontractProtocol {
   private readonly registryEscrow: Address;
   private readonly feeManagerEscrow: Address;
   private readonly ownerAddress: Address;
+  private readonly onTransactionCompleteWebhookUrl: string | null;
+  private readonly sdkSecret: string | null;
 
-  constructor(chain: Chain, transport: HttpTransport, contractList: ContractList, account?: Account) {
+  constructor(
+    chain: Chain,
+    transport: HttpTransport,
+    contractList: ContractList,
+    account?: Account,
+    onTransactionCompleteWebhookUrl?: string,
+    sdkSecret?: string
+  ) {
     this.contractList = contractList;
     this.wallet = createWalletClient({
       account,
@@ -130,6 +154,8 @@ export class MidcontractProtocol {
     this.registryEscrow = contractList.escrow["REGISTRY"] as Address;
     this.feeManagerEscrow = contractList.escrow["FEE_MANAGER"] as Address;
     this.ownerAddress = contractList.escrow["ADMIN"] as Address;
+    this.onTransactionCompleteWebhookUrl = onTransactionCompleteWebhookUrl || null;
+    this.sdkSecret = sdkSecret || null;
   }
 
   static buildByEnvironment(name: Environment = "test", account?: Account, url?: string): MidcontractProtocol {
@@ -255,8 +281,34 @@ export class MidcontractProtocol {
     const data = await this.public.readContract({
       address: this.escrow,
       args: [contractId],
-      abi: escrow,
+      abi: escrowHourly,
       functionName: "deposits",
+    });
+
+    for (const token of this.tokenList) {
+      if (token.address == data[1]) {
+        return new Deposit([
+          data[0],
+          token.symbol,
+          Number(formatUnits(data[2], token.decimals)),
+          Number(formatUnits(data[3], token.decimals)),
+          Number(formatUnits(data[4], token.decimals)),
+          data[5],
+          data[6],
+          data[7],
+          data[8],
+        ]);
+      }
+    }
+    throw new NotFoundError();
+  }
+
+  async getDepositListMilestone(contractId: bigint, milestoneId: bigint): Promise<Deposit> {
+    const data = await this.public.readContract({
+      address: this.escrow,
+      args: [contractId, milestoneId],
+      abi: escrowMilestone,
+      functionName: "contractMilestones",
     });
 
     for (const token of this.tokenList) {
@@ -280,7 +332,7 @@ export class MidcontractProtocol {
   async currentContractId(): Promise<bigint> {
     return this.public.readContract({
       address: this.escrow,
-      abi: escrow,
+      abi: escrowHourly,
       functionName: "getCurrentContractId",
     });
   }
@@ -361,8 +413,7 @@ export class MidcontractProtocol {
   async tokenRequireAllowance(owner: Address, amount: number, symbol: SymbolToken = "MockUSDT"): Promise<void> {
     const allowance = await this.tokenAllowance(owner, symbol);
     if (allowance < amount) {
-      const approveAmount = 1000;
-      // const approveAmount = amount - allowance;
+      const approveAmount = amount - allowance;
       const hash = await this.tokenApprove(approveAmount, symbol);
       const transaction = await this.public.waitForTransactionReceipt({ hash });
       if (transaction.status != "success") {
@@ -385,7 +436,7 @@ export class MidcontractProtocol {
     const encodedData = toHex(new TextEncoder().encode(data));
     const result = await this.public.readContract({
       address: this.escrow,
-      abi: escrow,
+      abi: escrowHourly,
       args: [encodedData as Hash, salt],
       functionName: "getContractorDataHash",
     });
@@ -429,7 +480,7 @@ export class MidcontractProtocol {
     try {
       const data = await this.public.simulateContract({
         address: this.escrow,
-        abi: escrow,
+        abi: escrowHourly,
         account,
         args: [
           {
@@ -449,7 +500,80 @@ export class MidcontractProtocol {
       const hash = await this.send({ ...data.request });
       const receipt = await this.getTransactionReceipt(hash, waitReceipt);
       const contractId = await this.currentContractId();
-      return { id: hash, status: receipt ? receipt.status : "pending", contractId };
+      const transactionResponse: DepositResponse = {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+        contractId,
+      };
+      await this.onTransactionCompleteWebhook(transactionResponse);
+      return transactionResponse;
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.shortMessage);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
+  }
+
+  async escrowMilestoneDeposit(
+    deposits: DepositInput[],
+    token: SymbolToken,
+    escrowContractId = 0n,
+    waitReceipt = true
+  ): Promise<DepositResponse> {
+    const account = this.account;
+    let totalDepositToAllow = 0;
+    const requestPayload = [];
+    for (const deposit of deposits) {
+      deposit.token = deposit.token || "MockUSDT";
+      deposit.timeLock = deposit.timeLock || BigInt(0);
+      deposit.recipientData =
+        deposit.recipientData || "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470";
+
+      const token = this.dataToken(deposit.token);
+
+      const { totalDepositAmount } = await this.escrowDepositAmount(
+        Number(deposit.amount),
+        deposit.feeConfig,
+        deposit.token
+      );
+      totalDepositToAllow += totalDepositAmount;
+      deposit.status = deposit.status || DepositStatus.ACTIVE;
+      requestPayload.push({
+        contractor: deposit.contractorAddress,
+        paymentToken: token.address,
+        amount: parseUnits(String(deposit.amount), token.decimals),
+        amountToClaim: parseUnits(String(deposit.amountToClaim || 0), token.decimals),
+        amountToWithdraw: parseUnits(String(deposit.amountToWithdraw || 0), token.decimals),
+        timeLock: deposit.timeLock,
+        contractorData: deposit.recipientData,
+        feeConfig: deposit.feeConfig,
+        status: deposit.status,
+      });
+    }
+
+    await this.tokenRequireBalance(account.address, totalDepositToAllow, token);
+    await this.tokenRequireAllowance(account.address, totalDepositToAllow, token);
+
+    try {
+      const data = await this.public.simulateContract({
+        address: this.escrow,
+        abi: escrowMilestone,
+        account,
+        args: [escrowContractId, requestPayload],
+        functionName: "deposit",
+      });
+      const hash = await this.send({ ...data.request });
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      const contractId = await this.currentContractId();
+      const transactionResponse: DepositResponse = {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+        contractId,
+      };
+      await this.onTransactionCompleteWebhook(transactionResponse);
+      return transactionResponse;
     } catch (error) {
       if (error instanceof ContractFunctionExecutionError) {
         throw new SimulateError(error.shortMessage);
@@ -464,14 +588,54 @@ export class MidcontractProtocol {
       const encodedData = toHex(new TextEncoder().encode(data));
       const { request } = await this.public.simulateContract({
         address: this.escrow,
-        abi: escrow,
+        abi: escrowHourly,
         account: this.account,
         args: [contractId, encodedData, salt],
         functionName: "submit",
       });
       const hash = await this.send(request);
       const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-      return { id: hash, status: receipt ? receipt.status : "pending" };
+      const transactionResponse: TransactionId = {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+      await this.onTransactionCompleteWebhook(transactionResponse);
+      return transactionResponse;
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.shortMessage);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
+  }
+
+  async escrowSubmitMilestone(
+    contractId: bigint,
+    milestoneId: bigint,
+    salt: Hash,
+    data: string,
+    waitReceipt = true
+  ): Promise<TransactionId> {
+    try {
+      const encodedData = toHex(new TextEncoder().encode(data));
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: escrowMilestone,
+        account: this.account,
+        args: [contractId, milestoneId, encodedData, salt],
+        functionName: "submit",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+
+      const transactionResponse: TransactionId = {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+      await this.onTransactionCompleteWebhook(transactionResponse);
+
+      return transactionResponse;
     } catch (error) {
       if (error instanceof ContractFunctionExecutionError) {
         throw new SimulateError(error.shortMessage);
@@ -494,14 +658,54 @@ export class MidcontractProtocol {
 
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrow,
+      abi: escrowHourly,
       account: this.account,
       args: [contractId, parseUnits(value.toString(), token.decimals)],
       functionName: "refill",
     });
     const hash = await this.send(request);
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return { id: hash, status: receipt ? receipt.status : "pending" };
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
+  }
+
+  async escrowRefillMilestone(
+    contractId: bigint,
+    milestoneId: bigint,
+    value: number,
+    waitReceipt = true
+  ): Promise<TransactionId> {
+    if (value == 0) {
+      throw new NotSetError("valueAdditional");
+    }
+
+    const deposit = await this.getDepositList(contractId);
+    const token = this.dataToken(deposit.paymentToken);
+    const account = this.account;
+    const { totalDepositAmount } = await this.escrowDepositAmount(value, deposit.feeConfig);
+    await this.tokenRequireAllowance(account.address, totalDepositAmount, deposit.paymentToken);
+
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrowMilestone,
+      account: this.account,
+      args: [contractId, milestoneId, parseUnits(value.toString(), token.decimals)],
+      functionName: "refill",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
   }
 
   async escrowApprove(input: ApproveInput, waitReceipt = true): Promise<TransactionId> {
@@ -522,92 +726,283 @@ export class MidcontractProtocol {
 
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrow,
+      abi: escrowHourly,
       account,
       args: [input.contractId, parseUnits(input.valueApprove.toString(), token.decimals), recipient],
       functionName: "approve",
     });
     const hash = await this.send(request);
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return { id: hash, status: receipt ? receipt.status : "pending" };
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
+  }
+
+  async escrowApproveMilestone(input: ApproveInputMilestone, waitReceipt = true): Promise<TransactionId> {
+    input.token = input.token || "MockUSDT";
+    input.valueApprove = input.valueApprove || 0;
+    const recipient = input.recipient || "0x0000000000000000000000000000000000000000";
+
+    if (input.valueApprove == 0) {
+      throw new NotSetError("valueAdditional");
+    }
+
+    const token = this.dataToken(input.token);
+    const account = this.account;
+
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrowMilestone,
+      account,
+      args: [input.contractId, input.milestoneId, parseUnits(input.valueApprove.toString(), token.decimals), recipient],
+      functionName: "approve",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
   }
 
   async escrowClaim(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrow,
+      abi: escrowHourly,
       account: this.account,
       args: [contractId],
       functionName: "claim",
     });
     const hash = await this.send(request);
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return { id: hash, status: receipt ? receipt.status : "pending" };
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
+  }
+
+  async escrowClaimMilestone(contractId: bigint, milestoneId: bigint, waitReceipt = true): Promise<TransactionId> {
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrowMilestone,
+      account: this.account,
+      args: [contractId, milestoneId],
+      functionName: "claim",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
   }
 
   async escrowWithdraw(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrow,
+      abi: escrowHourly,
       account: this.account,
       args: [contractId],
       functionName: "withdraw",
     });
     const hash = await this.send(request);
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return { id: hash, status: receipt ? receipt.status : "pending" };
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
+  }
+
+  async escrowWithdrawMilestone(contractId: bigint, milestoneId: bigint, waitReceipt = true): Promise<TransactionId> {
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrowMilestone,
+      account: this.account,
+      args: [contractId, milestoneId],
+      functionName: "withdraw",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
   }
 
   async requestReturn(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrow,
+      abi: escrowHourly,
       account: this.account,
       args: [contractId],
       functionName: "requestReturn",
     });
     const hash = await this.send(request);
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return { id: hash, status: receipt ? receipt.status : "pending" };
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
+  }
+
+  async requestReturnMilestone(contractId: bigint, milestoneId: bigint, waitReceipt = true): Promise<TransactionId> {
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrowMilestone,
+      account: this.account,
+      args: [contractId, milestoneId],
+      functionName: "requestReturn",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
   }
 
   async approveReturn(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrow,
+      abi: escrowHourly,
       account: this.account,
       args: [contractId],
       functionName: "approveReturn",
     });
     const hash = await this.send(request);
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return { id: hash, status: receipt ? receipt.status : "pending" };
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
+  }
+
+  async approveReturnMilestone(contractId: bigint, milestoneId: bigint, waitReceipt = true): Promise<TransactionId> {
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrowMilestone,
+      account: this.account,
+      args: [contractId, milestoneId],
+      functionName: "approveReturn",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
   }
 
   async cancelReturn(contractId: bigint, status: DepositStatus, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrow,
+      abi: escrowHourly,
       account: this.account,
       args: [contractId, status],
       functionName: "cancelReturn",
     });
     const hash = await this.send(request);
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return { id: hash, status: receipt ? receipt.status : "pending" };
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
+  }
+
+  async cancelReturnMilestone(
+    contractId: bigint,
+    milestoneId: bigint,
+    status: DepositStatus,
+    waitReceipt = true
+  ): Promise<TransactionId> {
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrowMilestone,
+      account: this.account,
+      args: [contractId, milestoneId, status],
+      functionName: "cancelReturn",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
   }
 
   async createDispute(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrow,
+      abi: escrowHourly,
       account: this.account,
       args: [contractId],
       functionName: "createDispute",
     });
     const hash = await this.send(request);
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return { id: hash, status: receipt ? receipt.status : "pending" };
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
+  }
+
+  async createDisputeMilestone(contractId: bigint, milestoneId: bigint, waitReceipt = true): Promise<TransactionId> {
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrowMilestone,
+      account: this.account,
+      args: [contractId, milestoneId],
+      functionName: "createDispute",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
   }
 
   async resolveDispute(
@@ -623,14 +1018,50 @@ export class MidcontractProtocol {
     const contractorAmountConverted = contractorAmount ? parseUnits(contractorAmount.toString(), token.decimals) : 0n;
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrow,
+      abi: escrowHourly,
       account: this.account,
       args: [contractId, winner, clientAmountConverted, contractorAmountConverted],
       functionName: "resolveDispute",
     });
     const hash = await this.send(request);
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return { id: hash, status: receipt ? receipt.status : "pending" };
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
+  }
+
+  async resolveDisputeMilestone(
+    contractId: bigint,
+    milestoneId: bigint,
+    winner: DisputeWinner,
+    clientAmount: number,
+    contractorAmount: number,
+    waitReceipt = true
+  ): Promise<TransactionId> {
+    const deposit = await this.getDepositList(contractId);
+    const token = this.dataToken(deposit.paymentToken);
+    const clientAmountConverted = clientAmount ? parseUnits(clientAmount.toString(), token.decimals) : 0n;
+    const contractorAmountConverted = contractorAmount ? parseUnits(contractorAmount.toString(), token.decimals) : 0n;
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: escrowMilestone,
+      account: this.account,
+      args: [contractId, milestoneId, winner, clientAmountConverted, contractorAmountConverted],
+      functionName: "resolveDispute",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    const transactionResponse: TransactionId = {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+    await this.onTransactionCompleteWebhook(transactionResponse);
+
+    return transactionResponse;
   }
 
   async deployEscrow(): Promise<{
@@ -641,7 +1072,27 @@ export class MidcontractProtocol {
       address: this.factoryEscrow,
       abi: escrowFactoryAbi,
       account: this.account,
-      args: [this.account.address, this.ownerAddress, this.registryEscrow],
+      args: [EscrowType.FixedPrice, this.account.address, this.ownerAddress, this.registryEscrow],
+      functionName: "deployEscrow",
+    });
+    const hash = await this.send(data.request);
+    await this.getTransactionReceipt(hash, true);
+    const salt = this.generateRandomNumber();
+    return {
+      userEscrow: data.result,
+      salt,
+    };
+  }
+
+  async deployMilestoneEscrow(): Promise<{
+    userEscrow: Address;
+    salt: Hash;
+  }> {
+    const data = await this.public.simulateContract({
+      address: this.factoryEscrow,
+      abi: escrowFactoryAbi,
+      account: this.account,
+      args: [EscrowType.Milestone, this.account.address, this.ownerAddress, this.registryEscrow],
       functionName: "deployEscrow",
     });
     const hash = await this.send(data.request);
@@ -718,14 +1169,14 @@ export class MidcontractProtocol {
 
   private async parseLogs(logs: (RpcLog | Log)[]) {
     return parseEventLogs({
-      abi: escrow,
+      abi: escrowHourly,
       logs,
     });
   }
 
   private async parseInput(data: Hex) {
     return decodeFunctionData({
-      abi: escrow,
+      abi: escrowHourly,
       data,
     });
   }
@@ -738,6 +1189,19 @@ export class MidcontractProtocol {
     const randomNumber = Math.floor(Math.random() * 999) + 1;
 
     return this.escrowMakeSalt(randomNumber);
+  }
+
+  private async onTransactionCompleteWebhook(transaction: TransactionId & { contractId?: bigint }): Promise<void> {
+    if (this.onTransactionCompleteWebhookUrl && this.sdkSecret) {
+      await fetch(this.onTransactionCompleteWebhookUrl, {
+        method: "POST",
+        body: JSON.stringify(transaction),
+        headers: {
+          "Content-Type": "application/json",
+          "sdk-webhook-token": this.sdkSecret,
+        },
+      });
+    }
   }
 
   transactionUrl(transactionHash: Hash): string {

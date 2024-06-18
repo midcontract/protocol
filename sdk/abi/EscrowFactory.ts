@@ -17,6 +17,7 @@ export const escrowFactoryAbi = [
     inputs: [
       { indexed: false, internalType: "address", name: "sender", type: "address" },
       { indexed: false, internalType: "address", name: "deployedProxy", type: "address" },
+      { indexed: false, internalType: "enum Enums.EscrowType", name: "escrowType", type: "uint8" },
     ],
     name: "EscrowProxyDeployed",
     type: "event",
@@ -50,6 +51,7 @@ export const escrowFactoryAbi = [
   },
   {
     inputs: [
+      { internalType: "enum Enums.EscrowType", name: "_escrowType", type: "uint8" },
       { internalType: "address", name: "_client", type: "address" },
       { internalType: "address", name: "_owner", type: "address" },
       { internalType: "address", name: "_registry", type: "address" },

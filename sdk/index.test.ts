@@ -9,6 +9,7 @@ const getDepositId = () => BigInt(random(100000, 1000000));
 const getData = () => getDepositId().toString();
 
 let userEscrow: Address;
+let userEscrowMilestone: Address;
 
 const alice = privateKeyToAccount("0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d");
 const bob = privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a");
@@ -248,7 +249,10 @@ describe("base", async () => {
       const deployEscrowResponse = await mp.deployEscrow();
       userEscrow = deployEscrowResponse.userEscrow;
     }
-    mp.changeEscrow(userEscrow);
+    if (!userEscrowMilestone) {
+      const deployEscrowMilestoneResponse = await mp.deployMilestoneEscrow();
+      userEscrowMilestone = deployEscrowMilestoneResponse.userEscrow;
+    }
   }, 1200000);
   it("blockNumber", async () => {
     console.log(`blockNumber=${await mp.blockNumber}`);
@@ -272,6 +276,7 @@ describe("base", async () => {
   });
 
   it("success flow Fixed Price", async () => {
+    mp.changeEscrow(userEscrow);
     const amount = 10;
     const amountToClaim = 0;
     const { data, salt, recipientData, aliceBalance, bobBalance } = await newData();
@@ -320,95 +325,129 @@ describe("base", async () => {
   }, 1200000);
 
   it("success flow Milestone", async () => {
-    const amount = 1;
+    mp.changeEscrow(userEscrowMilestone);
+    const amount = 10;
     const amountToClaim = 0;
     const { data, salt, recipientData, aliceBalance, bobBalance } = await newData();
     const tokenSymbol = "MockUSDT";
 
     // new deposit for milestone1
     mp.changeAccount(alice);
-    const depositInput = {
-      contractorAddress: bob.address,
-      token: tokenSymbol,
-      amount,
-      amountToClaim,
-      recipientData,
-      feeConfig: FeeConfig.CLIENT_COVERS_ALL,
-    };
-    const milestone1 = await mp.escrowDeposit(depositInput);
+    const depositInput = [
+      {
+        contractorAddress: bob.address,
+        token: tokenSymbol,
+        amount,
+        amountToClaim,
+        recipientData,
+        feeConfig: FeeConfig.CLIENT_COVERS_ALL,
+      },
+    ];
+    const milestone1 = await mp.escrowMilestoneDeposit(depositInput, tokenSymbol);
     expect(milestone1.status).toEqual("success");
     expect(milestone1.contractId).toBeDefined();
 
     const contractId = milestone1.contractId;
-    expect((await mp.getDepositList(contractId)).amount).toEqual(amount);
+    const milestone1Id = 0n;
+    expect((await mp.getDepositListMilestone(contractId, milestone1Id)).amount).toEqual(amount);
     expect(await mp.tokenBalance(alice.address)).toBeLessThan(aliceBalance - amount);
 
     // submit freelancer
     mp.changeAccount(bob);
-    const escrowSubmitStatus = await mp.escrowSubmit(contractId, salt, data);
+    const escrowSubmitStatus = await mp.escrowSubmitMilestone(contractId, milestone1Id, salt, data);
     expect(escrowSubmitStatus.status).toEqual("success");
 
     // new deposit for milestone2
     mp.changeAccount(alice);
-    const milestone2 = await mp.escrowRefill(contractId, amount);
+    const deposit2Input = [
+      {
+        contractorAddress: bob.address,
+        token: tokenSymbol,
+        amount,
+        amountToClaim,
+        recipientData,
+        feeConfig: FeeConfig.CLIENT_COVERS_ALL,
+      },
+    ];
+    const milestone2 = await mp.escrowMilestoneDeposit(deposit2Input, tokenSymbol, contractId);
     expect(milestone2.status).toEqual("success");
-    expect((await mp.getDepositList(contractId)).amount).toEqual(amount * 2);
+
+    const milestone2Id = 1n;
+    expect((await mp.getDepositListMilestone(contractId, milestone2Id)).amount).toEqual(amount);
     expect(await mp.tokenBalance(alice.address)).toBeLessThan(aliceBalance - amount * 2);
 
     // new deposit for milestone3
-    const milestone3 = await mp.escrowRefill(contractId, amount);
+    const deposit3Input = [
+      {
+        contractorAddress: bob.address,
+        token: tokenSymbol,
+        amount,
+        amountToClaim,
+        recipientData,
+        feeConfig: FeeConfig.CLIENT_COVERS_ALL,
+      },
+    ];
+    const milestone3 = await mp.escrowMilestoneDeposit(deposit3Input, tokenSymbol, contractId);
     expect(milestone3.status).toEqual("success");
-    expect((await mp.getDepositList(contractId)).amount).toEqual(amount * 3);
+
+    const milestone3Id = 2n;
+    expect((await mp.getDepositListMilestone(contractId, milestone3Id)).amount).toEqual(amount);
+
     expect(await mp.tokenBalance(alice.address)).toBeLessThan(aliceBalance - amount * 3);
 
     // approve and claim milestone1
-    const milestone1Approve = await mp.escrowApprove({
+    const milestone1Approve = await mp.escrowApproveMilestone({
       contractId,
+      milestoneId: milestone1Id,
       valueApprove: amount,
       recipient: bob.address,
+      token: tokenSymbol,
     });
     expect(milestone1Approve.status).toEqual("success");
-    expect((await mp.getDepositList(contractId)).amountToClaim).toEqual(amount);
+    expect((await mp.getDepositListMilestone(contractId, milestone1Id)).amountToClaim).toEqual(amount);
+
     mp.changeAccount(bob);
-    const milestone1Claim = await mp.escrowClaim(contractId);
+    const milestone1Claim = await mp.escrowClaimMilestone(contractId, milestone1Id);
     expect(milestone1Claim.status).toEqual("success");
     expect(await mp.tokenBalance(bob.address)).toEqual(bobBalance + amount);
 
     // submit milestone2 by freelancer
     mp.changeAccount(bob);
-    const escrowSubmitMilestone2 = await mp.escrowSubmit(contractId, salt, data);
+    const escrowSubmitMilestone2 = await mp.escrowSubmitMilestone(contractId, milestone2Id, salt, data);
     expect(escrowSubmitMilestone2.status).toEqual("success");
 
     // approve and claim milestone2
     mp.changeAccount(alice);
-    const milestone2Approve = await mp.escrowApprove({
+    const milestone2Approve = await mp.escrowApproveMilestone({
       contractId,
+      milestoneId: milestone2Id,
       valueApprove: amount,
       recipient: bob.address,
+      token: tokenSymbol,
     });
     expect(milestone2Approve.status).toEqual("success");
-    expect((await mp.getDepositList(contractId)).amountToClaim).toEqual(amount);
+    expect((await mp.getDepositListMilestone(contractId, milestone2Id)).amountToClaim).toEqual(amount);
     mp.changeAccount(bob);
-    const milestone2Claim = await mp.escrowClaim(contractId);
+    const milestone2Claim = await mp.escrowClaimMilestone(contractId, milestone2Id);
     expect(milestone2Claim.status).toEqual("success");
     expect(await mp.tokenBalance(bob.address)).toEqual(bobBalance + amount * 2);
 
     // submit milestone3 by freelancer
     mp.changeAccount(bob);
-    const escrowSubmitMilestone3 = await mp.escrowSubmit(contractId, salt, data);
+    const escrowSubmitMilestone3 = await mp.escrowSubmitMilestone(contractId, milestone3Id, salt, data);
     expect(escrowSubmitMilestone3.status).toEqual("success");
 
     // approve and claim milestone3
     mp.changeAccount(alice);
-    const milestone3Approve = await mp.escrowApprove({
+    const milestone3Approve = await mp.escrowApproveMilestone({
       contractId,
       valueApprove: amount,
       recipient: bob.address,
     });
     expect(milestone3Approve.status).toEqual("success");
-    expect((await mp.getDepositList(contractId)).amountToClaim).toEqual(amount);
+    expect((await mp.getDepositListMilestone(contractId, milestone3Id)).amountToClaim).toEqual(amount);
     mp.changeAccount(bob);
-    const milestone3Claim = await mp.escrowClaim(contractId);
+    const milestone3Claim = await mp.escrowClaimMilestone(contractId, milestone3Id);
     expect(milestone3Claim.status).toEqual("success");
     expect(await mp.tokenBalance(bob.address)).toEqual(bobBalance + amount * 3);
   }, 1200000);

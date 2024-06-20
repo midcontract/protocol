@@ -1,4 +1,4 @@
-export const escrowHourly = [
+export const escrowFixedPrice = [
   { inputs: [], name: "Escrow__AlreadyInitialized", type: "error" },
   { inputs: [], name: "Escrow__CreateDisputeNotAllowed", type: "error" },
   { inputs: [], name: "Escrow__DisputeNotActiveForThisDeposit", type: "error" },

@@ -42,7 +42,7 @@ describe("deployContract", async () => {
 });
 
 it("parse transaction", async () => {
-  const res = await mp.transactionByHashWait("0x0db6f530cfb93019f9aa2386e3b4b011266941dce384335ea837c1d462fd7f7c");
+  const res = await mp.transactionByHashWait("0x43b6c0c70d8a40b09791bcb73dfff539b5f06d3287f192cf2aa38b29d2da4898");
   expect(res);
 }, 1200000);
 

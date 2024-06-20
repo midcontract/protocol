@@ -35,7 +35,7 @@ import {
   iterateTokenList,
   type SymbolToken,
 } from "@/environment";
-import { escrowHourly } from "@/abi/EscrowHourly";
+import { escrowFixedPrice } from "@/abi/EscrowFixedPrice";
 import {
   CoreMidcontractProtocolError,
   NotEnoughError,
@@ -281,7 +281,7 @@ export class MidcontractProtocol {
     const data = await this.public.readContract({
       address: this.escrow,
       args: [contractId],
-      abi: escrowHourly,
+      abi: escrowFixedPrice,
       functionName: "deposits",
     });
 
@@ -332,7 +332,7 @@ export class MidcontractProtocol {
   async currentContractId(): Promise<bigint> {
     return this.public.readContract({
       address: this.escrow,
-      abi: escrowHourly,
+      abi: escrowFixedPrice,
       functionName: "getCurrentContractId",
     });
   }
@@ -436,7 +436,7 @@ export class MidcontractProtocol {
     const encodedData = toHex(new TextEncoder().encode(data));
     const result = await this.public.readContract({
       address: this.escrow,
-      abi: escrowHourly,
+      abi: escrowFixedPrice,
       args: [encodedData as Hash, salt],
       functionName: "getContractorDataHash",
     });
@@ -480,7 +480,7 @@ export class MidcontractProtocol {
     try {
       const data = await this.public.simulateContract({
         address: this.escrow,
-        abi: escrowHourly,
+        abi: escrowFixedPrice,
         account,
         args: [
           {
@@ -588,7 +588,7 @@ export class MidcontractProtocol {
       const encodedData = toHex(new TextEncoder().encode(data));
       const { request } = await this.public.simulateContract({
         address: this.escrow,
-        abi: escrowHourly,
+        abi: escrowFixedPrice,
         account: this.account,
         args: [contractId, encodedData, salt],
         functionName: "submit",
@@ -658,7 +658,7 @@ export class MidcontractProtocol {
 
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowHourly,
+      abi: escrowFixedPrice,
       account: this.account,
       args: [contractId, parseUnits(value.toString(), token.decimals)],
       functionName: "refill",
@@ -726,7 +726,7 @@ export class MidcontractProtocol {
 
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowHourly,
+      abi: escrowFixedPrice,
       account,
       args: [input.contractId, parseUnits(input.valueApprove.toString(), token.decimals), recipient],
       functionName: "approve",
@@ -775,7 +775,7 @@ export class MidcontractProtocol {
   async escrowClaim(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowHourly,
+      abi: escrowFixedPrice,
       account: this.account,
       args: [contractId],
       functionName: "claim",
@@ -813,7 +813,7 @@ export class MidcontractProtocol {
   async escrowWithdraw(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowHourly,
+      abi: escrowFixedPrice,
       account: this.account,
       args: [contractId],
       functionName: "withdraw",
@@ -851,7 +851,7 @@ export class MidcontractProtocol {
   async requestReturn(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowHourly,
+      abi: escrowFixedPrice,
       account: this.account,
       args: [contractId],
       functionName: "requestReturn",
@@ -889,7 +889,7 @@ export class MidcontractProtocol {
   async approveReturn(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowHourly,
+      abi: escrowFixedPrice,
       account: this.account,
       args: [contractId],
       functionName: "approveReturn",
@@ -927,7 +927,7 @@ export class MidcontractProtocol {
   async cancelReturn(contractId: bigint, status: DepositStatus, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowHourly,
+      abi: escrowFixedPrice,
       account: this.account,
       args: [contractId, status],
       functionName: "cancelReturn",
@@ -970,7 +970,7 @@ export class MidcontractProtocol {
   async createDispute(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowHourly,
+      abi: escrowFixedPrice,
       account: this.account,
       args: [contractId],
       functionName: "createDispute",
@@ -1018,7 +1018,7 @@ export class MidcontractProtocol {
     const contractorAmountConverted = contractorAmount ? parseUnits(contractorAmount.toString(), token.decimals) : 0n;
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowHourly,
+      abi: escrowFixedPrice,
       account: this.account,
       args: [contractId, winner, clientAmountConverted, contractorAmountConverted],
       functionName: "resolveDispute",
@@ -1169,14 +1169,14 @@ export class MidcontractProtocol {
 
   private async parseLogs(logs: (RpcLog | Log)[]) {
     return parseEventLogs({
-      abi: escrowHourly,
+      abi: escrowFixedPrice,
       logs,
     });
   }
 
   private async parseInput(data: Hex) {
     return decodeFunctionData({
-      abi: escrowHourly,
+      abi: escrowFixedPrice,
       data,
     });
   }

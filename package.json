@@ -40,7 +40,7 @@
   ],
   "scripts": {
     "build": "rimraf build/**/* && pnpm build:chain && pnpm build:sdk",
-    "build:abi": "echo \\\"export const escrow = $(jq '.abi' out/Escrow.sol/Escrow.json) as const\\\" > sdk/abi/EscrowHourly.ts",
+    "build:abi": "echo \\\\\\\"export const escrow = $(jq '.abi' out/Escrow.sol/Escrow.json) as const\\\\\\\" > sdk/abi/EscrowFixedPrice.ts",
     "build:chain": "pnpm build:remap && forge build && pnpm build:abi",
     "build:optimized": "FOUNDRY_PROFILE=optimized forge build",
     "build:remap": "forge remappings > remappings.txt",

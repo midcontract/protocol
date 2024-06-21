@@ -148,14 +148,18 @@ export function parseInput(data: Hex): TransactionInput {
       abi: escrowFixedPrice,
       data,
     });
-  } catch (e) {}
+  } catch (e) {
+    console.log();
+  }
 
   try {
     inputMilestone = decodeFunctionData({
       abi: escrowMilestone,
       data,
     });
-  } catch (e) {}
+  } catch (e) {
+    console.log();
+  }
 
   if (inputFixPrice) {
     switch (inputFixPrice.functionName) {

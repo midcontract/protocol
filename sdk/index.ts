@@ -47,7 +47,7 @@ import {
   SimulateError,
 } from "@/Error";
 import { blastSepolia } from "@/chain/blastSepolia";
-import { parseInput, type TransactionInput } from "@/parse";
+import { parseInput, parseMilestoneInput, type TransactionInput } from "@/parse";
 import { FeeManager } from "@/feeManager/feeManager";
 import { Deposit, DepositStatus, DisputeWinner, type FeeConfig } from "@/Deposit";
 import { escrowFactoryAbi } from "@/abi/EscrowFactory";
@@ -1126,6 +1126,23 @@ export class MidcontractProtocol {
     return {
       transaction,
       input: parseInput(transaction.input),
+      status: receipt ? receipt.status : "pending",
+      receipt,
+    };
+  }
+
+  async transactionByHashMilestoneWait(hash: Hash): Promise<TransactionData> {
+    return this.transactionByHashMilestone(hash, true);
+  }
+
+  async transactionByHashMilestone(hash: Hash, waitReceipt = false): Promise<TransactionData> {
+    const transaction = await this.public.getTransaction({
+      hash,
+    });
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return {
+      transaction,
+      input: parseMilestoneInput(transaction.input),
       status: receipt ? receipt.status : "pending",
       receipt,
     };

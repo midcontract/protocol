@@ -1168,6 +1168,26 @@ export class MidcontractProtocol {
     };
   }
 
+  async transactionParseMilestone(data: TransactionData) {
+    const { transaction, receipt } = data;
+    if (BigInt(transaction.to || "0") != BigInt(this.escrow)) {
+      throw new NotSupportError(`contract ${transaction.to} ${this.escrow}`);
+    }
+    const input = await this.parseInputMilestone(transaction.input);
+    const events = await this.parseLogsMilestone(receipt ? receipt.logs : []).then(logs =>
+      logs.map(log => {
+        return {
+          eventName: log.eventName,
+          args: log.args,
+        };
+      })
+    );
+    return {
+      input,
+      events,
+    };
+  }
+
   private get tokenList(): IterableIterator<DataToken> {
     return iterateTokenList(this.contractList.tokenList);
   }
@@ -1191,9 +1211,23 @@ export class MidcontractProtocol {
     });
   }
 
+  private async parseLogsMilestone(logs: (RpcLog | Log)[]) {
+    return parseEventLogs({
+      abi: escrowMilestone,
+      logs,
+    });
+  }
+
   private async parseInput(data: Hex) {
     return decodeFunctionData({
       abi: escrowFixedPrice,
+      data,
+    });
+  }
+
+  private async parseInputMilestone(data: Hex) {
+    return decodeFunctionData({
+      abi: escrowMilestone,
       data,
     });
   }

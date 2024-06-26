@@ -5,6 +5,7 @@ import { NotMatchError } from "@/Error";
 import type { SymbolToken } from "@/environment";
 import { DepositStatus, type DisputeWinner } from "@/Deposit";
 import { escrowMilestone } from "@/abi/EscrowMilestone";
+import { escrowHourly } from "@/abi/EscrowHourly";
 
 interface ContractInput {
   functionName: string;
@@ -31,6 +32,8 @@ export interface EscrowDepositMilestoneInput extends ContractInput {
   recipientData: Hash;
 }
 
+export interface EscrowDepositHourlyInput extends EscrowDepositMilestoneInput {}
+
 export interface EscrowWithdrawInput extends ContractInput {
   depositId: bigint;
 }
@@ -38,6 +41,11 @@ export interface EscrowWithdrawInput extends ContractInput {
 export interface EscrowWithdrawMilestoneInput extends ContractInput {
   depositId: bigint;
   escrowMilestoneId: bigint;
+}
+
+export interface EscrowWithdrawHourlyInput extends ContractInput {
+  depositId: bigint;
+  escrowWeekId: bigint;
 }
 
 export interface EscrowClaimInput extends ContractInput {
@@ -49,6 +57,11 @@ export interface EscrowClaimMilestoneInput extends ContractInput {
   escrowMilestoneId: bigint;
 }
 
+export interface EscrowClaimHourlyInput extends ContractInput {
+  depositId: bigint;
+  escrowWeekId: bigint;
+}
+
 export interface EscrowSubmitInput extends ContractInput {
   depositId: bigint;
   data: string;
@@ -57,6 +70,12 @@ export interface EscrowSubmitInput extends ContractInput {
 export interface EscrowSubmitMilestoneInput extends ContractInput {
   depositId: bigint;
   escrowMilestoneId: bigint;
+  data: string;
+}
+
+export interface EscrowSubmitHourlyInput extends ContractInput {
+  depositId: bigint;
+  escrowWeekId: bigint;
   data: string;
 }
 
@@ -74,6 +93,13 @@ export interface EscrowApproveMilestoneInput extends ContractInput {
   recipient: Address;
 }
 
+export interface EscrowApproveHourlyInput extends ContractInput {
+  depositId: bigint;
+  escrowWeekId: bigint;
+  valueApprove: number;
+  recipient: Address;
+}
+
 export interface EscrowRefillInput extends ContractInput {
   depositId: bigint;
   valueAdditional: number;
@@ -82,6 +108,12 @@ export interface EscrowRefillInput extends ContractInput {
 export interface EscrowRefillMilestoneInput extends ContractInput {
   depositId: bigint;
   escrowMilestoneId: bigint;
+  valueAdditional: number;
+}
+
+export interface EscrowRefillHourlyInput extends ContractInput {
+  depositId: bigint;
+  escrowWeekId: bigint;
   valueAdditional: number;
 }
 
@@ -94,6 +126,11 @@ export interface EscrowCreateReturnRequestMilestoneInput extends ContractInput {
   escrowMilestoneId: bigint;
 }
 
+export interface EscrowCreateReturnRequestHourlyInput extends ContractInput {
+  depositId: bigint;
+  escrowWeekId: bigint;
+}
+
 export interface EscrowApproveReturnRequestInput extends ContractInput {
   depositId: bigint;
 }
@@ -101,6 +138,11 @@ export interface EscrowApproveReturnRequestInput extends ContractInput {
 export interface EscrowApproveReturnRequestMilestoneInput extends ContractInput {
   depositId: bigint;
   escrowMilestoneId: bigint;
+}
+
+export interface EscrowApproveReturnRequestHourlyInput extends ContractInput {
+  depositId: bigint;
+  escrowWeekId: bigint;
 }
 
 export interface EscrowCancelReturnRequestInput extends ContractInput {
@@ -114,6 +156,12 @@ export interface EscrowCancelReturnRequestMilestoneInput extends ContractInput {
   status: DepositStatus;
 }
 
+export interface EscrowCancelReturnRequestHourlyInput extends ContractInput {
+  depositId: bigint;
+  escrowWeekId: bigint;
+  status: DepositStatus;
+}
+
 export interface EscrowCreateDisputeInput extends ContractInput {
   depositId: bigint;
 }
@@ -121,6 +169,11 @@ export interface EscrowCreateDisputeInput extends ContractInput {
 export interface EscrowCreateDisputeMilestoneInput extends ContractInput {
   depositId: bigint;
   escrowMilestoneId: bigint;
+}
+
+export interface EscrowCreateDisputeHourlyInput extends ContractInput {
+  depositId: bigint;
+  escrowWeekId: bigint;
 }
 
 export interface EscrowResolveDisputeInputInput extends ContractInput {
@@ -133,6 +186,14 @@ export interface EscrowResolveDisputeInputInput extends ContractInput {
 export interface EscrowResolveDisputeMilestoneInput extends ContractInput {
   depositId: bigint;
   escrowMilestoneId: bigint;
+  winner: DisputeWinner;
+  clientAmount: number;
+  contractorAmount: number;
+}
+
+export interface EscrowResolveDisputeHourlyInput extends ContractInput {
+  depositId: bigint;
+  escrowWeekId: bigint;
   winner: DisputeWinner;
   clientAmount: number;
   contractorAmount: number;
@@ -310,6 +371,101 @@ export function parseMilestoneInput(data: Hex): TransactionInput {
         clientAmount: Number(formatUnits(inputMilestone.args[3], 6)),
         contractorAmount: Number(formatUnits(inputMilestone.args[4], 6)),
       } as EscrowResolveDisputeMilestoneInput;
+    default:
+      throw new NotMatchError("input data");
+  }
+}
+
+export function parseHourlyInput(data: Hex): TransactionInput {
+  const inputMilestone = decodeFunctionData({
+    abi: escrowHourly,
+    data,
+  });
+
+  switch (inputMilestone.functionName) {
+    case "deposit":
+      return {
+        functionName: "deposit",
+        depositId: inputMilestone.args[0],
+        contractor: inputMilestone.args[1][0]?.contractor,
+        tokenAddress: inputMilestone.args[1][0]?.paymentToken,
+        tokenSymbol: "MockUSDT", // FIXME remove hardcode
+        amount: inputMilestone.args[1].reduce((accumulator, value) => {
+          accumulator += Number(formatUnits(value.amount, 6));
+          return accumulator;
+        }, 0),
+        timeLock: inputMilestone.args[1][0]?.timeLock,
+        feeConfig: inputMilestone.args[1][0]?.feeConfig,
+        recipientData: inputMilestone.args[1][0]?.contractorData,
+      } as EscrowDepositHourlyInput;
+    case "withdraw":
+      return {
+        functionName: "withdraw",
+        depositId: inputMilestone.args[0],
+        escrowWeekId: inputMilestone.args[1],
+      } as EscrowWithdrawHourlyInput;
+    case "claim":
+      return {
+        functionName: "claim",
+        depositId: inputMilestone.args[0],
+        escrowWeekId: inputMilestone.args[1],
+      } as EscrowClaimHourlyInput;
+    case "submit":
+      return {
+        functionName: "submit",
+        depositId: inputMilestone.args[0],
+        escrowWeekId: inputMilestone.args[1],
+        data: inputMilestone.args[2],
+      } as EscrowSubmitHourlyInput;
+    case "approve":
+      return {
+        functionName: "approve",
+        depositId: inputMilestone.args[0],
+        escrowWeekId: inputMilestone.args[1],
+        valueApprove: Number(formatUnits(inputMilestone.args[2], 6)), // FIXME remove hardcode
+        recipient: inputMilestone.args[3],
+      } as EscrowApproveHourlyInput;
+    case "refill":
+      return {
+        functionName: "refill",
+        depositId: inputMilestone.args[0],
+        escrowWeekId: inputMilestone.args[1],
+        valueAdditional: Number(formatUnits(inputMilestone.args[1], 6)),
+      } as EscrowRefillHourlyInput;
+    case "requestReturn":
+      return {
+        functionName: "requestReturn",
+        depositId: inputMilestone.args[0],
+        escrowWeekId: inputMilestone.args[1],
+      } as EscrowCreateReturnRequestHourlyInput;
+    case "approveReturn":
+      return {
+        functionName: "requestReturn",
+        depositId: inputMilestone.args[0],
+        escrowWeekId: inputMilestone.args[1],
+      } as EscrowApproveReturnRequestHourlyInput;
+    case "cancelReturn":
+      return {
+        functionName: "cancelReturn",
+        depositId: inputMilestone.args[0],
+        escrowWeekId: inputMilestone.args[1],
+        status: inputMilestone.args[2],
+      } as EscrowCancelReturnRequestHourlyInput;
+    case "createDispute":
+      return {
+        functionName: "createDispute",
+        depositId: inputMilestone.args[0],
+        escrowWeekId: inputMilestone.args[1],
+      } as EscrowCreateDisputeHourlyInput;
+    case "resolveDispute":
+      return {
+        functionName: "resolveDispute",
+        depositId: inputMilestone.args[0],
+        escrowWeekId: inputMilestone.args[1],
+        winner: inputMilestone.args[2],
+        clientAmount: Number(formatUnits(inputMilestone.args[3], 6)),
+        contractorAmount: Number(formatUnits(inputMilestone.args[4], 6)),
+      } as EscrowResolveDisputeHourlyInput;
     default:
       throw new NotMatchError("input data");
   }

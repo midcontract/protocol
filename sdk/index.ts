@@ -1262,7 +1262,7 @@ export class MidcontractProtocol {
     contractorAmount: number,
     waitReceipt = true
   ): Promise<TransactionId> {
-    const deposit = await this.getDepositList(contractId);
+    const deposit = await this.getDepositListMilestone(contractId, milestoneId);
     const token = this.dataToken(deposit.paymentToken);
     const clientAmountConverted = clientAmount ? parseUnits(clientAmount.toString(), token.decimals) : 0n;
     const contractorAmountConverted = contractorAmount ? parseUnits(contractorAmount.toString(), token.decimals) : 0n;
@@ -1289,7 +1289,7 @@ export class MidcontractProtocol {
     contractorAmount: number,
     waitReceipt = true
   ): Promise<TransactionId> {
-    const deposit = await this.getDepositList(contractId);
+    const deposit = await this.getDepositListHourly(contractId, weekId);
     const token = this.dataToken(deposit.paymentToken);
     const clientAmountConverted = clientAmount ? parseUnits(clientAmount.toString(), token.decimals) : 0n;
     const contractorAmountConverted = contractorAmount ? parseUnits(contractorAmount.toString(), token.decimals) : 0n;

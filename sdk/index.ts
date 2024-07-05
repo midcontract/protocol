@@ -12,6 +12,8 @@ import {
   type RpcLog,
   type Log,
   toHex,
+  type ParseEventLogsReturnType,
+  type Abi,
 } from "viem";
 import {
   createWalletClient,
@@ -24,7 +26,7 @@ import {
 } from "viem";
 import { parseUnits, formatUnits } from "viem";
 import { erc20Abi } from "abitype/abis";
-import { sepolia, localhost } from "viem/chains";
+import { sepolia, localhost, polygonAmoy } from "viem/chains";
 import type { Transaction, TransactionReceipt } from "viem/types/transaction";
 import type { Hex } from "viem/types/misc";
 import {
@@ -35,7 +37,7 @@ import {
   iterateTokenList,
   type SymbolToken,
 } from "@/environment";
-import { escrowFixedPrice } from "@/abi/EscrowFixedPrice";
+import { amoyEscrowFixedPrice, escrowFixedPrice } from "@/abi/EscrowFixedPrice";
 import {
   CoreMidcontractProtocolError,
   NotEnoughError,
@@ -50,9 +52,10 @@ import { blastSepolia } from "@/chain/blastSepolia";
 import { parseHourlyInput, parseInput, parseMilestoneInput, type TransactionInput } from "@/parse";
 import { FeeManager } from "@/feeManager/feeManager";
 import { Deposit, DepositStatus, DisputeWinner, type FeeConfig } from "@/Deposit";
-import { escrowFactoryAbi } from "@/abi/EscrowFactory";
-import { escrowMilestone } from "@/abi/EscrowMilestone";
+import { amoyEscrowFactoryAbi, escrowFactoryAbi } from "@/abi/EscrowFactory";
+import { amoyEscrowMilestone, escrowMilestone } from "@/abi/EscrowMilestone";
 import { escrowHourly } from "@/abi/EscrowHourly";
+import { amoyFeeManagerAbi, feeManagerAbi } from "@/abi/FeeManager";
 
 export interface DepositAmount {
   totalDepositAmount: number;
@@ -125,6 +128,14 @@ export enum EscrowType {
   Hourly,
 }
 
+interface AbiList {
+  fixedPriceAbi: readonly object[];
+  milestoneAbi: readonly object[];
+  hourlyAbi: readonly object[];
+  feeManagerAbi: readonly object[];
+  factoryAbi: readonly object[];
+}
+
 export class MidcontractProtocol {
   private readonly contractList: ContractList;
   private escrow: Address = "0x0";
@@ -135,8 +146,13 @@ export class MidcontractProtocol {
   private readonly registryEscrow: Address;
   private readonly feeManagerEscrow: Address;
   private readonly ownerAddress: Address;
+  public fixedPriceAbi: [];
+  public milestoneAbi: [];
+  public hourlyAbi: [];
+  public feeManagerAbi: [];
+  public factoryAbi: [];
 
-  constructor(chain: Chain, transport: HttpTransport, contractList: ContractList, account?: Account) {
+  constructor(chain: Chain, transport: HttpTransport, contractList: ContractList, abiList: AbiList, account?: Account) {
     this.contractList = contractList;
     this.wallet = createWalletClient({
       account,
@@ -154,17 +170,57 @@ export class MidcontractProtocol {
     this.registryEscrow = contractList.escrow["REGISTRY"] as Address;
     this.feeManagerEscrow = contractList.escrow["FEE_MANAGER"] as Address;
     this.ownerAddress = contractList.escrow["ADMIN"] as Address;
+    this.fixedPriceAbi = abiList.fixedPriceAbi as [];
+    this.milestoneAbi = abiList.milestoneAbi as [];
+    this.hourlyAbi = abiList.hourlyAbi as [];
+    this.feeManagerAbi = abiList.feeManagerAbi as [];
+    this.factoryAbi = abiList.factoryAbi as [];
   }
 
   static buildByEnvironment(name: Environment = "test", account?: Account, url?: string): MidcontractProtocol {
     let chain = localhost as Chain;
+    switch (name) {
+      case "test":
+        chain = sepolia;
+        break;
+      case "beta":
+        chain = blastSepolia;
+        break;
+      case "beta2":
+        chain = polygonAmoy;
+    }
+    const contracts = contractList(name, chain.id);
+    let abiList: AbiList;
     if (name == "test") {
       chain = sepolia;
+      abiList = {
+        fixedPriceAbi: escrowFixedPrice,
+        milestoneAbi: escrowMilestone,
+        hourlyAbi: escrowHourly,
+        feeManagerAbi: feeManagerAbi,
+        factoryAbi: escrowFactoryAbi,
+      };
     } else if (name == "beta") {
       chain = blastSepolia;
+      abiList = {
+        fixedPriceAbi: escrowFixedPrice,
+        milestoneAbi: escrowMilestone,
+        hourlyAbi: escrowHourly,
+        feeManagerAbi: feeManagerAbi,
+        factoryAbi: escrowFactoryAbi,
+      };
+    } else {
+      chain = polygonAmoy;
+      abiList = {
+        fixedPriceAbi: amoyEscrowFixedPrice,
+        milestoneAbi: amoyEscrowMilestone,
+        hourlyAbi: escrowHourly,
+        feeManagerAbi: amoyFeeManagerAbi,
+        factoryAbi: amoyEscrowFactoryAbi,
+      };
     }
     const transport = url ? http(url) : http();
-    return new MidcontractProtocol(chain, transport, contractList(name, chain.id), account);
+    return new MidcontractProtocol(chain, transport, contracts, abiList, account);
   }
 
   /** @deprecated */
@@ -225,7 +281,13 @@ export class MidcontractProtocol {
   ): Promise<DepositAmount> {
     const tokenData = this.dataToken(tokenSymbol);
     const convertedAmount = parseUnits(amount.toString(), tokenData.decimals);
-    const feeManager = new FeeManager(this.wallet, this.public, this.account, this.feeManagerEscrow);
+    const feeManager = new FeeManager(
+      this.wallet,
+      this.public,
+      this.account,
+      this.feeManagerEscrow,
+      this.feeManagerAbi
+    );
     const { totalDepositAmount, feeApplied } = await feeManager.computeDepositAmountAndFee(convertedAmount, feeConfig);
 
     return {
@@ -241,7 +303,13 @@ export class MidcontractProtocol {
   ): Promise<ClaimableAmount> {
     const tokenData = this.dataToken(tokenSymbol);
     const convertedAmount = parseUnits(amount.toString(), tokenData.decimals);
-    const feeManager = new FeeManager(this.wallet, this.public, this.account, this.feeManagerEscrow);
+    const feeManager = new FeeManager(
+      this.wallet,
+      this.public,
+      this.account,
+      this.feeManagerEscrow,
+      this.feeManagerAbi
+    );
     const { claimableAmount, feeDeducted, clientFee } = await feeManager.computeClaimableAmountAndFee(
       convertedAmount,
       feeConfig
@@ -255,21 +323,39 @@ export class MidcontractProtocol {
   }
 
   async getCoverageFee(): Promise<number> {
-    const feeManager = new FeeManager(this.wallet, this.public, this.account, this.feeManagerEscrow);
+    const feeManager = new FeeManager(
+      this.wallet,
+      this.public,
+      this.account,
+      this.feeManagerEscrow,
+      this.feeManagerAbi
+    );
     const { coverageFee } = await feeManager.getCoverageFee();
 
     return Number(coverageFee);
   }
 
   async getClaimFee(): Promise<number> {
-    const feeManager = new FeeManager(this.wallet, this.public, this.account, this.feeManagerEscrow);
+    const feeManager = new FeeManager(
+      this.wallet,
+      this.public,
+      this.account,
+      this.feeManagerEscrow,
+      this.feeManagerAbi
+    );
     const { claimFee } = await feeManager.getClaimFee();
 
     return Number(claimFee);
   }
 
   async getMaxBPS(): Promise<number> {
-    const feeManager = new FeeManager(this.wallet, this.public, this.account, this.feeManagerEscrow);
+    const feeManager = new FeeManager(
+      this.wallet,
+      this.public,
+      this.account,
+      this.feeManagerEscrow,
+      this.feeManagerAbi
+    );
     const bps = await feeManager.getBPS();
 
     return Number(bps);
@@ -279,7 +365,7 @@ export class MidcontractProtocol {
     const data = await this.public.readContract({
       address: this.escrow,
       args: [contractId],
-      abi: escrowFixedPrice,
+      abi: this.fixedPriceAbi,
       functionName: "deposits",
     });
 
@@ -305,7 +391,7 @@ export class MidcontractProtocol {
     const data = await this.public.readContract({
       address: this.escrow,
       args: [contractId, milestoneId],
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       functionName: "contractMilestones",
     });
 
@@ -331,7 +417,7 @@ export class MidcontractProtocol {
     const data = await this.public.readContract({
       address: this.escrow,
       args: [contractId, weekId],
-      abi: escrowHourly,
+      abi: this.hourlyAbi,
       functionName: "contractWeeks",
     });
 
@@ -356,7 +442,7 @@ export class MidcontractProtocol {
   async currentContractId(): Promise<bigint> {
     return this.public.readContract({
       address: this.escrow,
-      abi: escrowFixedPrice,
+      abi: this.fixedPriceAbi,
       functionName: "getCurrentContractId",
     });
   }
@@ -460,7 +546,7 @@ export class MidcontractProtocol {
     const encodedData = toHex(new TextEncoder().encode(data));
     const result = await this.public.readContract({
       address: this.escrow,
-      abi: escrowFixedPrice,
+      abi: this.fixedPriceAbi,
       args: [encodedData as Hash, salt],
       functionName: "getContractorDataHash",
     });
@@ -504,7 +590,7 @@ export class MidcontractProtocol {
     try {
       const data = await this.public.simulateContract({
         address: this.escrow,
-        abi: escrowFixedPrice,
+        abi: this.fixedPriceAbi,
         account,
         args: [
           {
@@ -581,7 +667,7 @@ export class MidcontractProtocol {
     try {
       const data = await this.public.simulateContract({
         address: this.escrow,
-        abi: escrowMilestone,
+        abi: this.milestoneAbi,
         account,
         args: [escrowContractId, requestPayload],
         functionName: "deposit",
@@ -646,7 +732,7 @@ export class MidcontractProtocol {
     try {
       const data = await this.public.simulateContract({
         address: this.escrow,
-        abi: escrowHourly,
+        abi: this.hourlyAbi,
         account,
         args: [escrowContractId, requestPayload],
         functionName: "deposit",
@@ -673,7 +759,7 @@ export class MidcontractProtocol {
       const encodedData = toHex(new TextEncoder().encode(data));
       const { request } = await this.public.simulateContract({
         address: this.escrow,
-        abi: escrowFixedPrice,
+        abi: this.fixedPriceAbi,
         account: this.account,
         args: [contractId, encodedData, salt],
         functionName: "submit",
@@ -704,7 +790,7 @@ export class MidcontractProtocol {
       const encodedData = toHex(new TextEncoder().encode(data));
       const { request } = await this.public.simulateContract({
         address: this.escrow,
-        abi: escrowMilestone,
+        abi: this.milestoneAbi,
         account: this.account,
         args: [contractId, milestoneId, encodedData, salt],
         functionName: "submit",
@@ -736,7 +822,7 @@ export class MidcontractProtocol {
       const encodedData = toHex(new TextEncoder().encode(data));
       const { request } = await this.public.simulateContract({
         address: this.escrow,
-        abi: escrowHourly,
+        abi: this.hourlyAbi,
         account: this.account,
         args: [contractId, weekId, encodedData, salt],
         functionName: "submit",
@@ -770,7 +856,7 @@ export class MidcontractProtocol {
 
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowFixedPrice,
+      abi: this.fixedPriceAbi,
       account: this.account,
       args: [contractId, parseUnits(value.toString(), token.decimals)],
       functionName: "refill",
@@ -801,7 +887,7 @@ export class MidcontractProtocol {
 
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       account: this.account,
       args: [contractId, milestoneId, parseUnits(value.toString(), token.decimals)],
       functionName: "refill",
@@ -832,7 +918,7 @@ export class MidcontractProtocol {
 
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowHourly,
+      abi: this.hourlyAbi,
       account: this.account,
       args: [contractId, weekId, parseUnits(value.toString(), token.decimals)],
       functionName: "refill",
@@ -863,7 +949,7 @@ export class MidcontractProtocol {
 
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowFixedPrice,
+      abi: this.fixedPriceAbi,
       account,
       args: [input.contractId, parseUnits(input.valueApprove.toString(), token.decimals), recipient],
       functionName: "approve",
@@ -890,7 +976,7 @@ export class MidcontractProtocol {
 
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       account,
       args: [input.contractId, input.milestoneId, parseUnits(input.valueApprove.toString(), token.decimals), recipient],
       functionName: "approve",
@@ -917,7 +1003,7 @@ export class MidcontractProtocol {
 
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       account,
       args: [input.contractId, input.weekId, parseUnits(input.valueApprove.toString(), token.decimals), recipient],
       functionName: "approve",
@@ -933,7 +1019,7 @@ export class MidcontractProtocol {
   async escrowClaim(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowFixedPrice,
+      abi: this.fixedPriceAbi,
       account: this.account,
       args: [contractId],
       functionName: "claim",
@@ -949,7 +1035,7 @@ export class MidcontractProtocol {
   async escrowClaimMilestone(contractId: bigint, milestoneId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       account: this.account,
       args: [contractId, milestoneId],
       functionName: "claim",
@@ -965,7 +1051,7 @@ export class MidcontractProtocol {
   async escrowClaimHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       account: this.account,
       args: [contractId, weekId],
       functionName: "claim",
@@ -981,7 +1067,7 @@ export class MidcontractProtocol {
   async escrowWithdraw(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowFixedPrice,
+      abi: this.fixedPriceAbi,
       account: this.account,
       args: [contractId],
       functionName: "withdraw",
@@ -997,7 +1083,7 @@ export class MidcontractProtocol {
   async escrowWithdrawMilestone(contractId: bigint, milestoneId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       account: this.account,
       args: [contractId, milestoneId],
       functionName: "withdraw",
@@ -1013,7 +1099,7 @@ export class MidcontractProtocol {
   async escrowWithdrawHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       account: this.account,
       args: [contractId, weekId],
       functionName: "withdraw",
@@ -1029,7 +1115,7 @@ export class MidcontractProtocol {
   async requestReturn(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowFixedPrice,
+      abi: this.fixedPriceAbi,
       account: this.account,
       args: [contractId],
       functionName: "requestReturn",
@@ -1045,7 +1131,7 @@ export class MidcontractProtocol {
   async requestReturnMilestone(contractId: bigint, milestoneId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       account: this.account,
       args: [contractId, milestoneId],
       functionName: "requestReturn",
@@ -1061,7 +1147,7 @@ export class MidcontractProtocol {
   async requestReturnHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       account: this.account,
       args: [contractId, weekId],
       functionName: "requestReturn",
@@ -1077,7 +1163,7 @@ export class MidcontractProtocol {
   async approveReturn(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowFixedPrice,
+      abi: this.fixedPriceAbi,
       account: this.account,
       args: [contractId],
       functionName: "approveReturn",
@@ -1093,7 +1179,7 @@ export class MidcontractProtocol {
   async approveReturnMilestone(contractId: bigint, milestoneId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       account: this.account,
       args: [contractId, milestoneId],
       functionName: "approveReturn",
@@ -1109,7 +1195,7 @@ export class MidcontractProtocol {
   async approveReturnHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       account: this.account,
       args: [contractId, weekId],
       functionName: "approveReturn",
@@ -1125,7 +1211,7 @@ export class MidcontractProtocol {
   async cancelReturn(contractId: bigint, status: DepositStatus, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowFixedPrice,
+      abi: this.fixedPriceAbi,
       account: this.account,
       args: [contractId, status],
       functionName: "cancelReturn",
@@ -1146,7 +1232,7 @@ export class MidcontractProtocol {
   ): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       account: this.account,
       args: [contractId, milestoneId, status],
       functionName: "cancelReturn",
@@ -1167,7 +1253,7 @@ export class MidcontractProtocol {
   ): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       account: this.account,
       args: [contractId, weekId, status],
       functionName: "cancelReturn",
@@ -1183,7 +1269,7 @@ export class MidcontractProtocol {
   async createDispute(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowFixedPrice,
+      abi: this.fixedPriceAbi,
       account: this.account,
       args: [contractId],
       functionName: "createDispute",
@@ -1199,7 +1285,7 @@ export class MidcontractProtocol {
   async createDisputeMilestone(contractId: bigint, milestoneId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       account: this.account,
       args: [contractId, milestoneId],
       functionName: "createDispute",
@@ -1215,7 +1301,7 @@ export class MidcontractProtocol {
   async createDisputeHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       account: this.account,
       args: [contractId, weekId],
       functionName: "createDispute",
@@ -1241,7 +1327,7 @@ export class MidcontractProtocol {
     const contractorAmountConverted = contractorAmount ? parseUnits(contractorAmount.toString(), token.decimals) : 0n;
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowFixedPrice,
+      abi: this.fixedPriceAbi,
       account: this.account,
       args: [contractId, winner, clientAmountConverted, contractorAmountConverted],
       functionName: "resolveDispute",
@@ -1268,7 +1354,7 @@ export class MidcontractProtocol {
     const contractorAmountConverted = contractorAmount ? parseUnits(contractorAmount.toString(), token.decimals) : 0n;
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       account: this.account,
       args: [contractId, milestoneId, winner, clientAmountConverted, contractorAmountConverted],
       functionName: "resolveDispute",
@@ -1295,7 +1381,7 @@ export class MidcontractProtocol {
     const contractorAmountConverted = contractorAmount ? parseUnits(contractorAmount.toString(), token.decimals) : 0n;
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       account: this.account,
       args: [contractId, weekId, winner, clientAmountConverted, contractorAmountConverted],
       functionName: "resolveDispute",
@@ -1314,7 +1400,7 @@ export class MidcontractProtocol {
   }> {
     const data = await this.public.simulateContract({
       address: this.factoryEscrow,
-      abi: escrowFactoryAbi,
+      abi: this.factoryAbi,
       account: this.account,
       args: [EscrowType.FixedPrice, this.account.address, this.ownerAddress, this.registryEscrow],
       functionName: "deployEscrow",
@@ -1334,7 +1420,7 @@ export class MidcontractProtocol {
   }> {
     const data = await this.public.simulateContract({
       address: this.factoryEscrow,
-      abi: escrowFactoryAbi,
+      abi: this.factoryAbi,
       account: this.account,
       args: [EscrowType.Milestone, this.account.address, this.ownerAddress, this.registryEscrow],
       functionName: "deployEscrow",
@@ -1354,7 +1440,7 @@ export class MidcontractProtocol {
   }> {
     const data = await this.public.simulateContract({
       address: this.factoryEscrow,
-      abi: escrowFactoryAbi,
+      abi: this.factoryAbi,
       account: this.account,
       args: [EscrowType.Hourly, this.account.address, this.ownerAddress, this.registryEscrow],
       functionName: "deployEscrow",
@@ -1369,12 +1455,24 @@ export class MidcontractProtocol {
   }
 
   async updateDefaultFees(coverageFee: number, claimFee: number): Promise<void> {
-    const feeManager = new FeeManager(this.wallet, this.public, this.account, this.feeManagerEscrow);
+    const feeManager = new FeeManager(
+      this.wallet,
+      this.public,
+      this.account,
+      this.feeManagerEscrow,
+      this.feeManagerAbi
+    );
     await feeManager.updateDefaultFees(coverageFee, claimFee);
   }
 
   async setSpecialFees(accountAddress: Address, coverageFee: number, claimFee: number): Promise<void> {
-    const feeManager = new FeeManager(this.wallet, this.public, this.account, this.feeManagerEscrow);
+    const feeManager = new FeeManager(
+      this.wallet,
+      this.public,
+      this.account,
+      this.feeManagerEscrow,
+      this.feeManagerAbi
+    );
     await feeManager.setSpecialFees(accountAddress, coverageFee, claimFee);
   }
 
@@ -1505,44 +1603,44 @@ export class MidcontractProtocol {
     throw new NotSupportError(`token ${tokenAddress}`);
   }
 
-  private async parseLogs(logs: (RpcLog | Log)[]) {
+  private async parseLogs(logs: (RpcLog | Log)[]): Promise<ParseEventLogsReturnType<Abi, undefined, true>> {
     return parseEventLogs({
-      abi: escrowFixedPrice,
+      abi: this.fixedPriceAbi,
       logs,
     });
   }
 
-  private async parseLogsMilestone(logs: (RpcLog | Log)[]) {
+  private async parseLogsMilestone(logs: (RpcLog | Log)[]): Promise<ParseEventLogsReturnType<Abi, undefined, true>> {
     return parseEventLogs({
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       logs,
     });
   }
 
-  private async parseLogsHourly(logs: (RpcLog | Log)[]) {
+  private async parseLogsHourly(logs: (RpcLog | Log)[]): Promise<ParseEventLogsReturnType<Abi, undefined, true>> {
     return parseEventLogs({
-      abi: escrowMilestone,
+      abi: this.hourlyAbi,
       logs,
     });
   }
 
   private async parseInput(data: Hex) {
     return decodeFunctionData({
-      abi: escrowFixedPrice,
+      abi: this.fixedPriceAbi,
       data,
     });
   }
 
   private async parseInputMilestone(data: Hex) {
     return decodeFunctionData({
-      abi: escrowMilestone,
+      abi: this.milestoneAbi,
       data,
     });
   }
 
   private async parseInputHourly(data: Hex) {
     return decodeFunctionData({
-      abi: escrowHourly,
+      abi: this.hourlyAbi,
       data,
     });
   }

@@ -1,8 +1,13 @@
-import { type Address } from "viem";
+import { type Abi, type Address } from "viem";
 import type { PartialRecord } from "@/common";
 import { NotSupportError } from "@/Error";
+import { amoyEscrowFixedPrice, escrowFixedPrice } from "@/abi/EscrowFixedPrice";
+import { amoyEscrowMilestone, escrowMilestone } from "@/abi/EscrowMilestone";
+import { escrowHourly } from "@/abi/EscrowHourly";
+import { amoyEscrowFactoryAbi, escrowFactoryAbi } from "@/abi/EscrowFactory";
+import { feeManagerAbi } from "@/abi/FeeManager";
 
-export type Environment = "prod" | "beta" | "test" | "local";
+export type Environment = "prod" | "beta" | "beta2" | "test" | "local";
 
 export type SymbolToken = "USDT" | "USDC" | "MockUSDT";
 
@@ -25,7 +30,7 @@ export function* iterateTokenList(tokenList: TokenList): IterableIterator<DataTo
 
 export type ContractList = {
   chainName: string;
-  escrow: { [key: string]: Address };
+  escrow: { [key: string]: Address | Abi };
   tokenList: TokenList;
 };
 
@@ -33,6 +38,7 @@ export enum ChainID {
   Localhost = 31337,
   Sepolia = 11_155_111,
   BlastSepolia = 168_587_773,
+  PolygonAmoy = 80_002,
 }
 
 export type ChainList = PartialRecord<ChainID, ContractList>;
@@ -75,6 +81,11 @@ export const environmentList: EnvironmentList = {
         FEE_MANAGER: "0xA4857B1178425cfaaaeedBcFc220F242b4A518fA",
         ESCROW_PROXY: "0xEAC34764333F697c31a7C72ee74ED33D1dEfff0d",
         ADMIN: "0x3eAb900aC1E0de25F465c63717cD1044fF69243C",
+        FIXED_PRICE_ABI: escrowFixedPrice,
+        MILESTONE_ABI: escrowMilestone,
+        HOURLY_ABI: escrowHourly,
+        FACTORY_ABI: escrowFactoryAbi,
+        FEE_MANAGER_ABI: feeManagerAbi,
       },
       tokenList: {
         MockUSDT: {
@@ -96,12 +107,45 @@ export const environmentList: EnvironmentList = {
         FEE_MANAGER: "0xA4857B1178425cfaaaeedBcFc220F242b4A518fA",
         ESCROW_PROXY: "0xEAC34764333F697c31a7C72ee74ED33D1dEfff0d",
         ADMIN: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+        FIXED_PRICE_ABI: escrowFixedPrice,
+        MILESTONE_ABI: escrowMilestone,
+        HOURLY_ABI: escrowHourly,
+        FACTORY_ABI: escrowFactoryAbi,
+        FEE_MANAGER_ABI: feeManagerAbi,
       },
       tokenList: {
         USDT: {
           symbol: "USDT",
           address: "0x6593f0D49BB695098358cAcE2Db325610daa3830",
           decimals: 18,
+        },
+      },
+    },
+  },
+  beta2: {
+    80_002: {
+      chainName: "PolygonAmoy",
+      escrow: {
+        REGISTRY: "0x54d1bcB39ec52c21233Ac2ff745043487c832b76",
+        MOCK_PAYMENT_TOKEN: "0xD19AC10fE911d913Eb0B731925d3a69c80Bd6643",
+        ESCROW_FIX_PRICE: "0xA925686d8DA646854BF47b493C0f053ce62308C5",
+        ESCROW_MILESTONE: "0xBa22c061905EfC35328ac6795e701d49F1e4fdB7",
+        ESCROW_HOURLY: "0x9161479c7Edb38D752BD17d31782c49784F52706",
+        FACTORY: "0x109F725FFda5020D6E4C9DEc83F07191e4a9632d",
+        FEE_MANAGER: "0x4FCe69069179559D28f607867ed6c708a799c7a5",
+        ESCROW_PROXY: "0xEAC34764333F697c31a7C72ee74ED33D1dEfff0d",
+        ADMIN: "0x3eAb900aC1E0de25F465c63717cD1044fF69243C",
+        FIXED_PRICE_ABI: amoyEscrowFixedPrice,
+        MILESTONE_ABI: amoyEscrowMilestone,
+        HOURLY_ABI: escrowHourly,
+        FACTORY_ABI: amoyEscrowFactoryAbi,
+        FEE_MANAGER_ABI: feeManagerAbi,
+      },
+      tokenList: {
+        MockUSDT: {
+          symbol: "MockUSDT",
+          address: "0xD19AC10fE911d913Eb0B731925d3a69c80Bd6643",
+          decimals: 6,
         },
       },
     },

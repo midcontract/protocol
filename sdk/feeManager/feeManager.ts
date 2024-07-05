@@ -1,4 +1,3 @@
-import { feeManagerAbi } from "@/abi/FeeManager";
 import type { Account, Address, Hash, PublicClient, WalletClient, WriteContractParameters } from "viem";
 import { FeeConfig } from "@/Deposit";
 
@@ -6,18 +5,26 @@ export class FeeManager {
   private readonly wallet: WalletClient;
   private readonly public: PublicClient;
   private readonly account: Account;
-  private feeManagerEscrow: Address;
+  private readonly feeManagerEscrow: Address;
+  private readonly abi: [];
 
-  constructor(walletClient: WalletClient, publicClient: PublicClient, account: Account, feeManagerEscrow: Address) {
+  constructor(
+    walletClient: WalletClient,
+    publicClient: PublicClient,
+    account: Account,
+    feeManagerEscrow: Address,
+    abi: []
+  ) {
     this.wallet = walletClient;
     this.public = publicClient;
     this.account = account;
     this.feeManagerEscrow = feeManagerEscrow;
+    this.abi = abi;
   }
   async updateDefaultFees(coverageFee: number, claimFee: number): Promise<void> {
     const { request } = await this.public.simulateContract({
       address: this.feeManagerEscrow,
-      abi: feeManagerAbi,
+      abi: this.abi,
       account: this.account,
       args: [coverageFee, claimFee],
       functionName: "updateDefaultFees",
@@ -28,7 +35,7 @@ export class FeeManager {
   async setSpecialFees(accountAddress: Address, coverageFee: number, claimFee: number): Promise<void> {
     const { request } = await this.public.simulateContract({
       address: this.feeManagerEscrow,
-      abi: feeManagerAbi,
+      abi: this.abi,
       account: this.account,
       args: [accountAddress, coverageFee, claimFee],
       functionName: "setSpecialFees",
@@ -39,7 +46,7 @@ export class FeeManager {
   async computeDepositAmountAndFee(amount: bigint, configFee: FeeConfig = 1) {
     const result = await this.public.readContract({
       address: this.feeManagerEscrow,
-      abi: feeManagerAbi,
+      abi: this.abi,
       account: this.account,
       args: [this.account.address, amount, configFee],
       functionName: "computeDepositAmountAndFee",
@@ -53,7 +60,7 @@ export class FeeManager {
   async computeClaimableAmountAndFee(amount: bigint, configFee: FeeConfig = 1) {
     const result = await this.public.readContract({
       address: this.feeManagerEscrow,
-      abi: feeManagerAbi,
+      abi: this.abi,
       account: this.account,
       args: [this.account.address, amount, configFee],
       functionName: "computeClaimableAmountAndFee",
@@ -69,7 +76,7 @@ export class FeeManager {
     const BPS = await this.getBPS();
     const result = await this.public.readContract({
       address: this.feeManagerEscrow,
-      abi: feeManagerAbi,
+      abi: this.abi,
       account: this.account,
       args: [this.account.address],
       functionName: "getClaimFee",
@@ -83,7 +90,7 @@ export class FeeManager {
     const BPS = await this.getBPS();
     const result = await this.public.readContract({
       address: this.feeManagerEscrow,
-      abi: feeManagerAbi,
+      abi: this.abi,
       account: this.account,
       args: [this.account.address],
       functionName: "getClaimFee",
@@ -96,7 +103,7 @@ export class FeeManager {
   async getBPS() {
     const result = await this.public.readContract({
       address: this.feeManagerEscrow,
-      abi: feeManagerAbi,
+      abi: this.abi,
       account: this.account,
       args: [],
       functionName: "MAX_BPS",

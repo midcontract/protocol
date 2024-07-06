@@ -29,7 +29,7 @@ export function* iterateTokenList(tokenList: TokenList): IterableIterator<DataTo
 }
 
 export type ContractList = {
-  chainName: string;
+  chainName: ChainNameEnum;
   escrow: { [key: string]: Address | Abi };
   tokenList: TokenList;
 };
@@ -45,10 +45,17 @@ export type ChainList = PartialRecord<ChainID, ContractList>;
 
 export type EnvironmentList = Record<Environment, ChainList>;
 
+export enum ChainNameEnum {
+  Localhost = "Localhost",
+  Sepolia = "Sepolia",
+  BlastSepolia = "BlastSepolia",
+  PolygonAmoy = "PolygonAmoy",
+}
+
 export const environmentList: EnvironmentList = {
   local: {
     31337: {
-      chainName: "Localhost",
+      chainName: ChainNameEnum.Localhost,
       escrow: {
         REGISTRY: "0xB536cc39702CE1103E12d6fBC3199cFC32d714f3",
         MOCK_PAYMENT_TOKEN: "0x288f4508660A747C77A95D68D5b77eD89CdE9D03",
@@ -70,7 +77,7 @@ export const environmentList: EnvironmentList = {
   },
   test: {
     11_155_111: {
-      chainName: "Sepolia",
+      chainName: ChainNameEnum.Sepolia,
       escrow: {
         REGISTRY: "0xB536cc39702CE1103E12d6fBC3199cFC32d714f3",
         MOCK_PAYMENT_TOKEN: "0x288f4508660A747C77A95D68D5b77eD89CdE9D03",
@@ -98,7 +105,7 @@ export const environmentList: EnvironmentList = {
   },
   beta: {
     168_587_773: {
-      chainName: "BlastSepolia",
+      chainName: ChainNameEnum.BlastSepolia,
       escrow: {
         REGISTRY: "0xcda8DF73fFA90c151879F0E5A46B2ad659502C73",
         MOCK_PAYMENT_TOKEN: "0x288f4508660A747C77A95D68D5b77eD89CdE9D03",
@@ -124,7 +131,7 @@ export const environmentList: EnvironmentList = {
   },
   beta2: {
     80_002: {
-      chainName: "PolygonAmoy",
+      chainName: ChainNameEnum.PolygonAmoy,
       escrow: {
         REGISTRY: "0x54d1bcB39ec52c21233Ac2ff745043487c832b76",
         MOCK_PAYMENT_TOKEN: "0xD19AC10fE911d913Eb0B731925d3a69c80Bd6643",

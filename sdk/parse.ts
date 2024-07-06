@@ -1,11 +1,11 @@
 import { type Address, decodeFunctionData, formatUnits, type Hash } from "viem";
 import type { Hex } from "viem/types/misc";
-import { escrowFixedPrice } from "@/abi/EscrowFixedPrice";
 import { NotMatchError } from "@/Error";
-import type { SymbolToken } from "@/environment";
+import { ChainNameEnum, type SymbolToken } from "@/environment";
 import { DepositStatus, type DisputeWinner } from "@/Deposit";
-import { escrowMilestone } from "@/abi/EscrowMilestone";
 import { escrowHourly } from "@/abi/EscrowHourly";
+import { amoyEscrowFixedPrice, escrowFixedPrice } from "@/abi/EscrowFixedPrice";
+import { amoyEscrowMilestone, escrowMilestone } from "@/abi/EscrowMilestone";
 
 interface ContractInput {
   functionName: string;
@@ -201,9 +201,22 @@ export interface EscrowResolveDisputeHourlyInput extends ContractInput {
 
 export type TransactionInput = EscrowDepositInput | EscrowWithdrawInput;
 
-export function parseInput(data: Hex): TransactionInput {
+export function parseInput(data: Hex, chainName: ChainNameEnum): TransactionInput {
+  let abi;
+
+  switch (chainName) {
+    case ChainNameEnum.Sepolia:
+      abi = escrowFixedPrice;
+      break;
+    case ChainNameEnum.PolygonAmoy:
+      abi = amoyEscrowFixedPrice;
+      break;
+    default:
+      throw new Error("Unsupported chainName");
+  }
+
   const inputFixPrice = decodeFunctionData({
-    abi: escrowFixedPrice,
+    abi: abi,
     data,
   });
 
@@ -215,7 +228,7 @@ export function parseInput(data: Hex): TransactionInput {
         tokenAddress: inputFixPrice.args[0].paymentToken,
         tokenSymbol: "USDT", // FIXME remove hardcode
         amount: Number(formatUnits(inputFixPrice.args[0].amount, 6)), // FIXME remove hardcode
-        timeLock: inputFixPrice.args[0].timeLock,
+        timeLock: 0n,
         feeConfig: inputFixPrice.args[0].feeConfig,
         recipientData: inputFixPrice.args[0].contractorData,
       } as EscrowDepositInput;
@@ -227,7 +240,7 @@ export function parseInput(data: Hex): TransactionInput {
     case "claim":
       return {
         functionName: "claim",
-        depositId: inputFixPrice.args[0],
+        depositId: inputFixPrice.args ? inputFixPrice.args[0] : "",
       } as EscrowClaimInput;
     case "submit":
       return {
@@ -282,9 +295,22 @@ export function parseInput(data: Hex): TransactionInput {
   }
 }
 
-export function parseMilestoneInput(data: Hex): TransactionInput {
+export function parseMilestoneInput(data: Hex, chainName: ChainNameEnum): TransactionInput {
+  let abi;
+
+  switch (chainName) {
+    case ChainNameEnum.Sepolia:
+      abi = escrowMilestone;
+      break;
+    case ChainNameEnum.PolygonAmoy:
+      abi = amoyEscrowMilestone;
+      break;
+    default:
+      throw new Error("Unsupported chainName");
+  }
+
   const inputMilestone = decodeFunctionData({
-    abi: escrowMilestone,
+    abi: abi,
     data,
   });
 
@@ -300,7 +326,7 @@ export function parseMilestoneInput(data: Hex): TransactionInput {
           accumulator += Number(formatUnits(value.amount, 6));
           return accumulator;
         }, 0),
-        timeLock: inputMilestone.args[1][0]?.timeLock,
+        timeLock: 0n,
         feeConfig: inputMilestone.args[1][0]?.feeConfig,
         recipientData: inputMilestone.args[1][0]?.contractorData,
       } as EscrowDepositMilestoneInput;

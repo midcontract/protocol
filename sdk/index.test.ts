@@ -12,8 +12,8 @@ let userEscrow: Address;
 let userEscrowMilestone: Address = "0x01f3C98428c119e55c65DC82af09e5C18316253f";
 let userEscrowHourly: Address;
 
-const alice = privateKeyToAccount("0x70d593122d403731db04f6e7632e5de732cabf7bab0ffc04b2ce435075edb9c4");
-const bob = privateKeyToAccount("0x6e8a90f36ecbe6dd70073c8648d7acf0ea70ce4d6557862a8bbed7319cc52969");
+const alice = privateKeyToAccount("0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d");
+const bob = privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a");
 
 const mp = MidcontractProtocol.buildByEnvironment("test", undefined);
 

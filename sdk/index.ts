@@ -1487,7 +1487,7 @@ export class MidcontractProtocol {
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);
     return {
       transaction,
-      input: parseInput(transaction.input),
+      input: parseInput(transaction.input, this.contractList.chainName),
       status: receipt ? receipt.status : "pending",
       receipt,
     };
@@ -1504,7 +1504,7 @@ export class MidcontractProtocol {
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);
     return {
       transaction,
-      input: parseMilestoneInput(transaction.input),
+      input: parseMilestoneInput(transaction.input, this.contractList.chainName),
       status: receipt ? receipt.status : "pending",
       receipt,
     };

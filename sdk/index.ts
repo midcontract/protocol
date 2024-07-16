@@ -447,6 +447,14 @@ export class MidcontractProtocol {
     });
   }
 
+  async currentContractIdMilestone(): Promise<bigint> {
+    return this.public.readContract({
+      address: this.escrow,
+      abi: this.milestoneAbi,
+      functionName: "getCurrentContractId",
+    });
+  }
+
   get blockNumber(): Promise<number> {
     return this.public.getBlockNumber().then(v => Number(v));
   }
@@ -674,7 +682,7 @@ export class MidcontractProtocol {
       });
       const hash = await this.send({ ...data.request });
       const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-      const contractId = await this.currentContractId();
+      const contractId = await this.currentContractIdMilestone();
       return {
         id: hash,
         status: receipt ? receipt.status : "pending",

@@ -15,10 +15,15 @@ export enum DepositStatus {
 }
 
 export enum FeeConfig {
-  CLIENT_COVERS_ALL,
-  CLIENT_COVERS_ONLY,
-  CONTRACTOR_COVERS_CLAIM,
+  CLIENT_COVERS_ALL, // Client covers all fees
+  CLIENT_COVERS_ONLY, // Client pays only for his fee
+  CONTRACTOR_COVERS_CLAIM, // Client covers only freelancer's claim fee
   NO_FEES,
+}
+
+export enum RefillType {
+  PREPAYMENT, // Indicates a refill to the contract's general prepayment pool, which can be used to cover future claims.
+  WEEK_PAYMENT, // Indicates a refill targeted at a specific week's deposit amount within the contract, typically to fulfill or increase the amount claimable for that week.
 }
 
 export enum DisputeWinner {

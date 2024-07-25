@@ -2,8 +2,8 @@ import { type Address, decodeFunctionData, formatUnits, type Hash } from "viem";
 import type { Hex } from "viem/types/misc";
 import { NotMatchError } from "@/Error";
 import { ChainNameEnum, type SymbolToken } from "@/environment";
-import { DepositStatus, type DisputeWinner } from "@/Deposit";
-import { escrowHourly } from "@/abi/EscrowHourly";
+import { DepositStatus, type DisputeWinner, RefillType } from "@/Deposit";
+import { amoyEscrowHourly, escrowHourly } from "@/abi/EscrowHourly";
 import { amoyEscrowFixedPrice, escrowFixedPrice } from "@/abi/EscrowFixedPrice";
 import { amoyEscrowMilestone, escrowMilestone } from "@/abi/EscrowMilestone";
 
@@ -32,7 +32,17 @@ export interface EscrowDepositMilestoneInput extends ContractInput {
   recipientData: Hash;
 }
 
-export interface EscrowDepositHourlyInput extends EscrowDepositMilestoneInput {}
+export interface EscrowDepositHourlyInput extends ContractInput {
+  depositId?: bigint;
+  contractor: Address;
+  tokenAddress: Address;
+  tokenSymbol: SymbolToken;
+  amount: number;
+  amountToClaim: number;
+  timeLock: bigint;
+  feeConfig: number;
+  recipientData: Hash;
+}
 
 export interface EscrowWithdrawInput extends ContractInput {
   depositId: bigint;
@@ -115,6 +125,7 @@ export interface EscrowRefillHourlyInput extends ContractInput {
   depositId: bigint;
   escrowWeekId: bigint;
   valueAdditional: number;
+  refillType: RefillType;
 }
 
 export interface EscrowCreateReturnRequestInput extends ContractInput {
@@ -402,95 +413,99 @@ export function parseMilestoneInput(data: Hex, chainName: ChainNameEnum): Transa
   }
 }
 
-export function parseHourlyInput(data: Hex): TransactionInput {
-  const inputMilestone = decodeFunctionData({
-    abi: escrowHourly,
+export function parseHourlyInput(data: Hex, chainName: ChainNameEnum): TransactionInput {
+  let abi;
+
+  switch (chainName) {
+    case ChainNameEnum.Sepolia:
+      abi = escrowHourly;
+      break;
+    case ChainNameEnum.PolygonAmoy:
+      abi = amoyEscrowHourly;
+      break;
+    default:
+      throw new Error("Unsupported chainName");
+  }
+  const inputHourly = decodeFunctionData({
+    abi: abi,
     data,
   });
 
-  switch (inputMilestone.functionName) {
+  switch (inputHourly.functionName) {
     case "deposit":
       return {
         functionName: "deposit",
-        depositId: inputMilestone.args[0],
-        contractor: inputMilestone.args[1][0]?.contractor,
-        tokenAddress: inputMilestone.args[1][0]?.paymentToken,
-        tokenSymbol: "MockUSDT", // FIXME remove hardcode
-        amount: inputMilestone.args[1].reduce((accumulator, value) => {
-          accumulator += Number(formatUnits(value.amount, 6));
-          return accumulator;
-        }, 0),
-        timeLock: inputMilestone.args[1][0]?.timeLock,
-        feeConfig: inputMilestone.args[1][0]?.feeConfig,
-        recipientData: inputMilestone.args[1][0]?.contractorData,
+        depositId: inputHourly.args[0],
+        contractor: inputHourly.args[3]?.contractor,
+        tokenAddress: inputHourly.args[1],
+        tokenSymbol: "MockUSDT",
+        amount: Number(formatUnits(inputHourly.args[2], 6)),
+        amountToClaim: Number(formatUnits(inputHourly.args[3].amountToClaim, 6)),
+        timeLock: 0n,
+        feeConfig: inputHourly.args[3]?.feeConfig,
+        recipientData: "0x0",
       } as EscrowDepositHourlyInput;
     case "withdraw":
       return {
         functionName: "withdraw",
-        depositId: inputMilestone.args[0],
-        escrowWeekId: inputMilestone.args[1],
+        depositId: inputHourly.args[0],
+        escrowWeekId: inputHourly.args[1],
       } as EscrowWithdrawHourlyInput;
     case "claim":
       return {
         functionName: "claim",
-        depositId: inputMilestone.args[0],
-        escrowWeekId: inputMilestone.args[1],
+        depositId: inputHourly.args[0],
+        escrowWeekId: inputHourly.args[1],
       } as EscrowClaimHourlyInput;
-    case "submit":
-      return {
-        functionName: "submit",
-        depositId: inputMilestone.args[0],
-        escrowWeekId: inputMilestone.args[1],
-        data: inputMilestone.args[2],
-      } as EscrowSubmitHourlyInput;
     case "approve":
       return {
         functionName: "approve",
-        depositId: inputMilestone.args[0],
-        escrowWeekId: inputMilestone.args[1],
-        valueApprove: Number(formatUnits(inputMilestone.args[2], 6)), // FIXME remove hardcode
-        recipient: inputMilestone.args[3],
+        depositId: inputHourly.args[0],
+        escrowWeekId: inputHourly.args[1],
+        valueApprove: Number(formatUnits(inputHourly.args[2], 6)), // FIXME remove hardcode
+        recipient: inputHourly.args[3],
       } as EscrowApproveHourlyInput;
     case "refill":
       return {
         functionName: "refill",
-        depositId: inputMilestone.args[0],
-        escrowWeekId: inputMilestone.args[1],
-        valueAdditional: Number(formatUnits(inputMilestone.args[1], 6)),
+        depositId: inputHourly.args[0],
+        escrowWeekId: inputHourly.args[1],
+        valueAdditional: Number(formatUnits(inputHourly.args[2], 6)),
+        refillType: inputHourly.args[3],
       } as EscrowRefillHourlyInput;
     case "requestReturn":
       return {
         functionName: "requestReturn",
-        depositId: inputMilestone.args[0],
-        escrowWeekId: inputMilestone.args[1],
+        depositId: inputHourly.args[0],
+        escrowWeekId: inputHourly.args[1],
       } as EscrowCreateReturnRequestHourlyInput;
     case "approveReturn":
       return {
         functionName: "requestReturn",
-        depositId: inputMilestone.args[0],
-        escrowWeekId: inputMilestone.args[1],
+        depositId: inputHourly.args[0],
+        escrowWeekId: inputHourly.args[1],
       } as EscrowApproveReturnRequestHourlyInput;
     case "cancelReturn":
       return {
         functionName: "cancelReturn",
-        depositId: inputMilestone.args[0],
-        escrowWeekId: inputMilestone.args[1],
-        status: inputMilestone.args[2],
+        depositId: inputHourly.args[0],
+        escrowWeekId: inputHourly.args[1],
+        status: inputHourly.args[2],
       } as EscrowCancelReturnRequestHourlyInput;
     case "createDispute":
       return {
         functionName: "createDispute",
-        depositId: inputMilestone.args[0],
-        escrowWeekId: inputMilestone.args[1],
+        depositId: inputHourly.args[0],
+        escrowWeekId: inputHourly.args[1],
       } as EscrowCreateDisputeHourlyInput;
     case "resolveDispute":
       return {
         functionName: "resolveDispute",
-        depositId: inputMilestone.args[0],
-        escrowWeekId: inputMilestone.args[1],
-        winner: inputMilestone.args[2],
-        clientAmount: Number(formatUnits(inputMilestone.args[3], 6)),
-        contractorAmount: Number(formatUnits(inputMilestone.args[4], 6)),
+        depositId: inputHourly.args[0],
+        escrowWeekId: inputHourly.args[1],
+        winner: inputHourly.args[2],
+        clientAmount: Number(formatUnits(inputHourly.args[3], 6)),
+        contractorAmount: Number(formatUnits(inputHourly.args[4], 6)),
       } as EscrowResolveDisputeHourlyInput;
     default:
       throw new NotMatchError("input data");

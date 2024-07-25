@@ -51,10 +51,10 @@ import {
 import { blastSepolia } from "@/chain/blastSepolia";
 import { parseHourlyInput, parseInput, parseMilestoneInput, type TransactionInput } from "@/parse";
 import { FeeManager } from "@/feeManager/feeManager";
-import { Deposit, DepositStatus, DisputeWinner, type FeeConfig } from "@/Deposit";
+import { Deposit, DepositStatus, DisputeWinner, type FeeConfig, RefillType } from "@/Deposit";
 import { amoyEscrowFactoryAbi, escrowFactoryAbi } from "@/abi/EscrowFactory";
 import { amoyEscrowMilestone, escrowMilestone } from "@/abi/EscrowMilestone";
-import { escrowHourly } from "@/abi/EscrowHourly";
+import { amoyEscrowHourly, escrowHourly } from "@/abi/EscrowHourly";
 import { amoyFeeManagerAbi, feeManagerAbi } from "@/abi/FeeManager";
 
 export interface DepositAmount {
@@ -78,6 +78,13 @@ export interface DepositInput {
   recipientData: Hash;
   feeConfig: FeeConfig;
   status?: DepositStatus;
+}
+
+export interface HourlyDepositInput {
+  contractorAddress: Address;
+  amountToClaim?: number;
+  amountToWithdraw?: number;
+  feeConfig: FeeConfig;
 }
 
 export interface ApproveInput {
@@ -214,7 +221,7 @@ export class MidcontractProtocol {
       abiList = {
         fixedPriceAbi: amoyEscrowFixedPrice,
         milestoneAbi: amoyEscrowMilestone,
-        hourlyAbi: escrowHourly,
+        hourlyAbi: amoyEscrowHourly,
         feeManagerAbi: amoyFeeManagerAbi,
         factoryAbi: amoyEscrowFactoryAbi,
       };
@@ -414,6 +421,13 @@ export class MidcontractProtocol {
   }
 
   async getDepositListHourly(contractId: bigint, weekId: bigint): Promise<Deposit> {
+    const contractDetails = await this.public.readContract({
+      address: this.escrow,
+      args: [contractId],
+      abi: this.hourlyAbi,
+      functionName: "contractDetails",
+    });
+
     const data = await this.public.readContract({
       address: this.escrow,
       args: [contractId, weekId],
@@ -422,17 +436,17 @@ export class MidcontractProtocol {
     });
 
     for (const token of this.tokenList) {
-      if (token.address == data[1]) {
+      if (token.address == contractDetails[0]) {
         return new Deposit([
           data[0],
           token.symbol,
+          Number(formatUnits(contractDetails[1], token.decimals)),
+          Number(formatUnits(data[1], token.decimals)),
           Number(formatUnits(data[2], token.decimals)),
-          Number(formatUnits(data[3], token.decimals)),
-          Number(formatUnits(data[4], token.decimals)),
-          data[5],
-          data[6],
-          data[7],
-          data[8],
+          0n,
+          "0x0",
+          data[3],
+          contractDetails[2],
         ]);
       }
     }
@@ -448,6 +462,14 @@ export class MidcontractProtocol {
   }
 
   async currentContractIdMilestone(): Promise<bigint> {
+    return this.public.readContract({
+      address: this.escrow,
+      abi: this.milestoneAbi,
+      functionName: "getCurrentContractId",
+    });
+  }
+
+  async currentContractIdHourly(): Promise<bigint> {
     return this.public.readContract({
       address: this.escrow,
       abi: this.milestoneAbi,
@@ -698,51 +720,37 @@ export class MidcontractProtocol {
   }
 
   async escrowDepositHourly(
-    deposits: DepositInput[],
-    token: SymbolToken,
+    tokenSymbol: SymbolToken,
+    prepaymentAmount = 0,
     escrowContractId = 0n,
+    deposit: HourlyDepositInput,
     waitReceipt = true
   ): Promise<DepositResponse> {
     const account = this.account;
-    let totalDepositToAllow = 0;
-    const requestPayload = [];
-    for (const deposit of deposits) {
-      deposit.token = deposit.token || "MockUSDT";
-      deposit.timeLock = deposit.timeLock || BigInt(0);
-      deposit.recipientData =
-        deposit.recipientData || "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470";
+    const token = this.dataToken(tokenSymbol);
+    const { totalDepositAmount } = await this.escrowDepositAmount(
+      prepaymentAmount ? Number(prepaymentAmount) : Number(deposit.amountToClaim),
+      deposit.feeConfig,
+      tokenSymbol
+    );
+    const parsedPrepaymentAmount = parseUnits(String(prepaymentAmount || 0), token.decimals);
 
-      const token = this.dataToken(deposit.token);
+    const depositPayload = {
+      contractor: deposit.contractorAddress,
+      amountToClaim: parseUnits(String(deposit.amountToClaim || 0), token.decimals),
+      amountToWithdraw: parseUnits(String(deposit.amountToWithdraw || 0), token.decimals),
+      feeConfig: deposit.feeConfig,
+    };
 
-      const { totalDepositAmount } = await this.escrowDepositAmount(
-        Number(deposit.amount),
-        deposit.feeConfig,
-        deposit.token
-      );
-      totalDepositToAllow += totalDepositAmount;
-      deposit.status = deposit.status || DepositStatus.ACTIVE;
-      requestPayload.push({
-        contractor: deposit.contractorAddress,
-        paymentToken: token.address,
-        amount: parseUnits(String(deposit.amount), token.decimals),
-        amountToClaim: parseUnits(String(deposit.amountToClaim || 0), token.decimals),
-        amountToWithdraw: parseUnits(String(deposit.amountToWithdraw || 0), token.decimals),
-        timeLock: deposit.timeLock,
-        contractorData: deposit.recipientData,
-        feeConfig: deposit.feeConfig,
-        status: deposit.status,
-      });
-    }
-
-    await this.tokenRequireBalance(account.address, totalDepositToAllow, token);
-    await this.tokenRequireAllowance(account.address, totalDepositToAllow, token);
+    await this.tokenRequireBalance(account.address, totalDepositAmount, tokenSymbol);
+    await this.tokenRequireAllowance(account.address, totalDepositAmount, tokenSymbol);
 
     try {
       const data = await this.public.simulateContract({
         address: this.escrow,
         abi: this.hourlyAbi,
         account,
-        args: [escrowContractId, requestPayload],
+        args: [escrowContractId, token.address, parsedPrepaymentAmount, depositPayload],
         functionName: "deposit",
       });
       const hash = await this.send({ ...data.request });
@@ -801,38 +809,6 @@ export class MidcontractProtocol {
         abi: this.milestoneAbi,
         account: this.account,
         args: [contractId, milestoneId, encodedData, salt],
-        functionName: "submit",
-      });
-      const hash = await this.send(request);
-      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-
-      return {
-        id: hash,
-        status: receipt ? receipt.status : "pending",
-      };
-    } catch (error) {
-      if (error instanceof ContractFunctionExecutionError) {
-        throw new SimulateError(error.shortMessage);
-      } else {
-        throw new CoreMidcontractProtocolError(JSON.stringify(error));
-      }
-    }
-  }
-
-  async escrowSubmitHourly(
-    contractId: bigint,
-    weekId: bigint,
-    salt: Hash,
-    data: string,
-    waitReceipt = true
-  ): Promise<TransactionId> {
-    try {
-      const encodedData = toHex(new TextEncoder().encode(data));
-      const { request } = await this.public.simulateContract({
-        address: this.escrow,
-        abi: this.hourlyAbi,
-        account: this.account,
-        args: [contractId, weekId, encodedData, salt],
         functionName: "submit",
       });
       const hash = await this.send(request);
@@ -912,6 +888,7 @@ export class MidcontractProtocol {
     contractId: bigint,
     weekId: bigint,
     value: number,
+    refillType: RefillType,
     waitReceipt = true
   ): Promise<TransactionId> {
     if (value == 0) {
@@ -922,13 +899,17 @@ export class MidcontractProtocol {
     const token = this.dataToken(deposit.paymentToken);
     const account = this.account;
     const { totalDepositAmount } = await this.escrowDepositAmount(value, deposit.feeConfig);
+
     await this.tokenRequireAllowance(account.address, totalDepositAmount, deposit.paymentToken);
+    await this.tokenRequireAllowance(account.address, totalDepositAmount, deposit.paymentToken);
+
+    const parsedAmount = parseUnits(value.toString(), token.decimals);
 
     const { request } = await this.public.simulateContract({
       address: this.escrow,
       abi: this.hourlyAbi,
       account: this.account,
-      args: [contractId, weekId, parseUnits(value.toString(), token.decimals)],
+      args: [contractId, weekId, parsedAmount, refillType],
       functionName: "refill",
     });
     const hash = await this.send(request);
@@ -1000,18 +981,23 @@ export class MidcontractProtocol {
   async escrowApproveHourly(input: ApproveInputHourly, waitReceipt = true): Promise<TransactionId> {
     input.token = input.token || "MockUSDT";
     input.valueApprove = input.valueApprove || 0;
+    const account = this.account;
     const recipient = input.recipient || "0x0000000000000000000000000000000000000000";
+    const token = this.dataToken(input.token);
 
     if (input.valueApprove == 0) {
       throw new NotSetError("valueAdditional");
     }
 
-    const token = this.dataToken(input.token);
-    const account = this.account;
+    const deposit = await this.getDepositListHourly(input.contractId, input.weekId);
+
+    const { totalDepositAmount } = await this.escrowDepositAmount(input.valueApprove, deposit.feeConfig);
+    await this.tokenRequireAllowance(account.address, totalDepositAmount, input.token);
+    await this.tokenRequireAllowance(account.address, totalDepositAmount, input.token);
 
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: this.milestoneAbi,
+      abi: this.hourlyAbi,
       account,
       args: [input.contractId, input.weekId, parseUnits(input.valueApprove.toString(), token.decimals), recipient],
       functionName: "approve",
@@ -1059,7 +1045,7 @@ export class MidcontractProtocol {
   async escrowClaimHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: this.milestoneAbi,
+      abi: this.hourlyAbi,
       account: this.account,
       args: [contractId, weekId],
       functionName: "claim",
@@ -1107,7 +1093,7 @@ export class MidcontractProtocol {
   async escrowWithdrawHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: this.milestoneAbi,
+      abi: this.hourlyAbi,
       account: this.account,
       args: [contractId, weekId],
       functionName: "withdraw",
@@ -1155,7 +1141,7 @@ export class MidcontractProtocol {
   async requestReturnHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: this.milestoneAbi,
+      abi: this.hourlyAbi,
       account: this.account,
       args: [contractId, weekId],
       functionName: "requestReturn",
@@ -1203,7 +1189,7 @@ export class MidcontractProtocol {
   async approveReturnHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: this.milestoneAbi,
+      abi: this.hourlyAbi,
       account: this.account,
       args: [contractId, weekId],
       functionName: "approveReturn",
@@ -1261,7 +1247,7 @@ export class MidcontractProtocol {
   ): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: this.milestoneAbi,
+      abi: this.hourlyAbi,
       account: this.account,
       args: [contractId, weekId, status],
       functionName: "cancelReturn",
@@ -1309,7 +1295,7 @@ export class MidcontractProtocol {
   async createDisputeHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: this.milestoneAbi,
+      abi: this.hourlyAbi,
       account: this.account,
       args: [contractId, weekId],
       functionName: "createDispute",
@@ -1389,7 +1375,7 @@ export class MidcontractProtocol {
     const contractorAmountConverted = contractorAmount ? parseUnits(contractorAmount.toString(), token.decimals) : 0n;
     const { request } = await this.public.simulateContract({
       address: this.escrow,
-      abi: this.milestoneAbi,
+      abi: this.hourlyAbi,
       account: this.account,
       args: [contractId, weekId, winner, clientAmountConverted, contractorAmountConverted],
       functionName: "resolveDispute",
@@ -1529,7 +1515,7 @@ export class MidcontractProtocol {
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);
     return {
       transaction,
-      input: parseHourlyInput(transaction.input),
+      input: parseHourlyInput(transaction.input, this.contractList.chainName),
       status: receipt ? receipt.status : "pending",
       receipt,
     };

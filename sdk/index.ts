@@ -269,6 +269,31 @@ export class MidcontractProtocol {
     });
   }
 
+  async changeEmbeddedProvider(provider: EIP1193Provider, address: Address, chainId: number): Promise<void> {
+    if (!address) {
+      throw new NotSetError("account");
+    }
+    const account = {
+      address: address,
+    } as Account;
+    if (this.public.chain) {
+      const currentChainId = BigInt(this.public.chain.id);
+      const providerChainId = BigInt(chainId);
+      if (currentChainId != providerChainId) {
+        throw new NotMatchError(`chainId ${providerChainId} provider and current chainId ${currentChainId}`);
+      }
+    }
+    this.wallet = createWalletClient({
+      account,
+      chain: this.wallet.chain,
+      transport: custom(provider),
+    });
+    this.public = createPublicClient({
+      chain: this.public.chain,
+      transport: custom(provider),
+    });
+  }
+
   changeEscrow(escrow: Address): void {
     this.escrow = escrow;
   }

@@ -207,6 +207,13 @@ export const escrowMilestone = [
     type: "function",
   },
   {
+    inputs: [{ internalType: "uint256", name: "_contractId", type: "uint256" }],
+    name: "claimAll",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "client",
     outputs: [{ internalType: "address", name: "", type: "address" }],
@@ -221,11 +228,9 @@ export const escrowMilestone = [
     name: "contractMilestones",
     outputs: [
       { internalType: "address", name: "contractor", type: "address" },
-      { internalType: "address", name: "paymentToken", type: "address" },
       { internalType: "uint256", name: "amount", type: "uint256" },
       { internalType: "uint256", name: "amountToClaim", type: "uint256" },
       { internalType: "uint256", name: "amountToWithdraw", type: "uint256" },
-      { internalType: "uint256", name: "timeLock", type: "uint256" },
       { internalType: "bytes32", name: "contractorData", type: "bytes32" },
       { internalType: "enum Enums.FeeConfig", name: "feeConfig", type: "uint8" },
       { internalType: "enum Enums.Status", name: "status", type: "uint8" },
@@ -246,14 +251,13 @@ export const escrowMilestone = [
   {
     inputs: [
       { internalType: "uint256", name: "_contractId", type: "uint256" },
+      { internalType: "address", name: "_paymentToken", type: "address" },
       {
         components: [
           { internalType: "address", name: "contractor", type: "address" },
-          { internalType: "address", name: "paymentToken", type: "address" },
           { internalType: "uint256", name: "amount", type: "uint256" },
           { internalType: "uint256", name: "amountToClaim", type: "uint256" },
           { internalType: "uint256", name: "amountToWithdraw", type: "uint256" },
-          { internalType: "uint256", name: "timeLock", type: "uint256" },
           { internalType: "bytes32", name: "contractorData", type: "bytes32" },
           { internalType: "enum Enums.FeeConfig", name: "feeConfig", type: "uint8" },
           { internalType: "enum Enums.Status", name: "status", type: "uint8" },
@@ -321,6 +325,20 @@ export const escrowMilestone = [
     type: "function",
   },
   {
+    inputs: [
+      { internalType: "uint256", name: "contractId", type: "uint256" },
+      { internalType: "uint256", name: "milestoneId", type: "uint256" },
+    ],
+    name: "milestoneData",
+    outputs: [
+      { internalType: "address", name: "paymentToken", type: "address" },
+      { internalType: "uint256", name: "depositAmount", type: "uint256" },
+      { internalType: "enum Enums.Winner", name: "winner", type: "uint8" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "owner",
     outputs: [{ internalType: "address", name: "result", type: "address" }],
@@ -341,7 +359,7 @@ export const escrowMilestone = [
   {
     inputs: [],
     name: "registry",
-    outputs: [{ internalType: "contract IRegistry", name: "", type: "address" }],
+    outputs: [{ internalType: "contract IEscrowRegistry", name: "", type: "address" }],
     stateMutability: "view",
     type: "function",
   },
@@ -636,7 +654,6 @@ export const amoyEscrowMilestone = [
     name: "contractMilestones",
     outputs: [
       { internalType: "address", name: "contractor", type: "address" },
-      { internalType: "address", name: "paymentToken", type: "address" },
       { internalType: "uint256", name: "amount", type: "uint256" },
       { internalType: "uint256", name: "amountToClaim", type: "uint256" },
       { internalType: "uint256", name: "amountToWithdraw", type: "uint256" },
@@ -660,10 +677,10 @@ export const amoyEscrowMilestone = [
   {
     inputs: [
       { internalType: "uint256", name: "_contractId", type: "uint256" },
+      { internalType: "address", name: "_paymentToken", type: "address" },
       {
         components: [
           { internalType: "address", name: "contractor", type: "address" },
-          { internalType: "address", name: "paymentToken", type: "address" },
           { internalType: "uint256", name: "amount", type: "uint256" },
           { internalType: "uint256", name: "amountToClaim", type: "uint256" },
           { internalType: "uint256", name: "amountToWithdraw", type: "uint256" },
@@ -730,6 +747,20 @@ export const amoyEscrowMilestone = [
     ],
     name: "isValidSignature",
     outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "contractId", type: "uint256" },
+      { internalType: "uint256", name: "milestoneId", type: "uint256" },
+    ],
+    name: "milestoneData",
+    outputs: [
+      { internalType: "address", name: "paymentToken", type: "address" },
+      { internalType: "uint256", name: "depositAmount", type: "uint256" },
+      { internalType: "enum Enums.Winner", name: "winner", type: "uint8" },
+    ],
     stateMutability: "view",
     type: "function",
   },

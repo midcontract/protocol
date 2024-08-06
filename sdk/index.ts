@@ -395,25 +395,32 @@ export class MidcontractProtocol {
   }
 
   async getDepositListMilestone(contractId: bigint, milestoneId: bigint): Promise<Deposit> {
-    const data = await this.public.readContract({
+    const contractMilestones = await this.public.readContract({
       address: this.escrow,
       args: [contractId, milestoneId],
       abi: this.milestoneAbi,
       functionName: "contractMilestones",
     });
 
+    const milestoneData = await this.public.readContract({
+      address: this.escrow,
+      args: [contractId, milestoneId],
+      abi: this.milestoneAbi,
+      functionName: "milestoneData",
+    });
+
     for (const token of this.tokenList) {
-      if (token.address == data[1]) {
+      if (token.address == milestoneData[0]) {
         return new Deposit([
-          data[0],
+          contractMilestones[0],
           token.symbol,
-          Number(formatUnits(data[2], token.decimals)),
-          Number(formatUnits(data[3], token.decimals)),
-          Number(formatUnits(data[4], token.decimals)),
-          data[5],
-          data[6],
-          data[7],
-          data[8],
+          Number(formatUnits(contractMilestones[1], token.decimals)),
+          Number(formatUnits(contractMilestones[2], token.decimals)),
+          Number(formatUnits(contractMilestones[3], token.decimals)),
+          0n,
+          contractMilestones[4],
+          contractMilestones[5],
+          contractMilestones[6],
         ]);
       }
     }
@@ -656,21 +663,19 @@ export class MidcontractProtocol {
 
   async escrowMilestoneDeposit(
     deposits: DepositInput[],
-    token: SymbolToken,
+    tokenSymbol: SymbolToken,
     escrowContractId = 0n,
     waitReceipt = true
   ): Promise<DepositResponse> {
     const account = this.account;
     let totalDepositToAllow = 0;
     const requestPayload = [];
+    const paymentToken = this.dataToken(tokenSymbol);
     for (const deposit of deposits) {
       deposit.token = deposit.token || "MockUSDT";
       deposit.timeLock = deposit.timeLock || BigInt(0);
       deposit.recipientData =
         deposit.recipientData || "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470";
-
-      const token = this.dataToken(deposit.token);
-
       const { totalDepositAmount } = await this.escrowDepositAmount(
         Number(deposit.amount),
         deposit.feeConfig,
@@ -680,26 +685,24 @@ export class MidcontractProtocol {
       deposit.status = deposit.status || DepositStatus.ACTIVE;
       requestPayload.push({
         contractor: deposit.contractorAddress,
-        paymentToken: token.address,
-        amount: parseUnits(String(deposit.amount), token.decimals),
-        amountToClaim: parseUnits(String(deposit.amountToClaim || 0), token.decimals),
-        amountToWithdraw: parseUnits(String(deposit.amountToWithdraw || 0), token.decimals),
-        timeLock: deposit.timeLock,
+        amount: parseUnits(String(deposit.amount), paymentToken.decimals),
+        amountToClaim: parseUnits(String(deposit.amountToClaim || 0), paymentToken.decimals),
+        amountToWithdraw: parseUnits(String(deposit.amountToWithdraw || 0), paymentToken.decimals),
         contractorData: deposit.recipientData,
         feeConfig: deposit.feeConfig,
         status: deposit.status,
       });
     }
 
-    await this.tokenRequireBalance(account.address, totalDepositToAllow, token);
-    await this.tokenRequireAllowance(account.address, totalDepositToAllow, token);
+    await this.tokenRequireBalance(account.address, totalDepositToAllow, tokenSymbol);
+    await this.tokenRequireAllowance(account.address, totalDepositToAllow, tokenSymbol);
 
     try {
       const data = await this.public.simulateContract({
         address: this.escrow,
         abi: this.milestoneAbi,
         account,
-        args: [escrowContractId, requestPayload],
+        args: [escrowContractId, paymentToken.address, requestPayload],
         functionName: "deposit",
       });
       const hash = await this.send({ ...data.request });
@@ -1033,6 +1036,22 @@ export class MidcontractProtocol {
       account: this.account,
       args: [contractId, milestoneId],
       functionName: "claim",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+  }
+
+  async escrowClaimAllMilestone(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: this.milestoneAbi,
+      account: this.account,
+      args: [contractId],
+      functionName: "claimAll",
     });
     const hash = await this.send(request);
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);

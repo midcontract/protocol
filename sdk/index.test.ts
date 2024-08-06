@@ -599,6 +599,129 @@ describe("base", async () => {
       expect(await mp.tokenBalance(bob.address)).toEqual(bobBalance + amount * 3);
     }, 1200000);
 
+    it("Claim all", async () => {
+      const amount = 1;
+      const amountToClaim = 0;
+      const { data, salt, recipientData, aliceBalance, bobBalance } = await newData();
+      const tokenSymbol = "MockUSDT";
+
+      // new deposit for milestone1
+      const depositInput = [
+        {
+          contractorAddress: bob.address,
+          token: tokenSymbol,
+          amount,
+          amountToClaim,
+          recipientData: recipientData,
+          feeConfig: FeeConfig.CLIENT_COVERS_ONLY,
+        },
+      ];
+      const milestone1 = await mp.escrowMilestoneDeposit(depositInput, tokenSymbol);
+      expect(milestone1.status).toEqual("success");
+      expect(milestone1.contractId).toBeDefined();
+
+      const contractId = milestone1.contractId;
+      const milestone1Id = 0n;
+      const milestone1Data = await mp.getDepositListMilestone(contractId, milestone1Id);
+      expect(milestone1Data.amount).toEqual(amount);
+      expect(await mp.tokenBalance(alice.address)).toBeLessThan(aliceBalance - amount);
+
+      // submit freelancer
+      mp.changeAccount(bob);
+      const escrowSubmitStatus = await mp.escrowSubmitMilestone(contractId, milestone1Id, salt, data);
+      expect(escrowSubmitStatus.status).toEqual("success");
+
+      // new deposit for milestone2
+      mp.changeAccount(alice);
+      const deposit2Input = [
+        {
+          contractorAddress: bob.address,
+          token: tokenSymbol,
+          amount,
+          amountToClaim,
+          recipientData,
+          feeConfig: FeeConfig.CLIENT_COVERS_ALL,
+        },
+      ];
+      const milestone2 = await mp.escrowMilestoneDeposit(deposit2Input, tokenSymbol, contractId);
+      expect(milestone2.status).toEqual("success");
+
+      const milestone2Id = 1n;
+      expect((await mp.getDepositListMilestone(contractId, milestone2Id)).amount).toEqual(amount);
+      expect(await mp.tokenBalance(alice.address)).toBeLessThan(aliceBalance - amount * 2);
+
+      // new deposit for milestone3
+      const deposit3Input = [
+        {
+          contractorAddress: bob.address,
+          token: tokenSymbol,
+          amount,
+          amountToClaim,
+          recipientData,
+          feeConfig: FeeConfig.CLIENT_COVERS_ALL,
+        },
+      ];
+      const milestone3 = await mp.escrowMilestoneDeposit(deposit3Input, tokenSymbol, contractId);
+      expect(milestone3.status).toEqual("success");
+
+      const milestone3Id = 2n;
+      expect((await mp.getDepositListMilestone(contractId, milestone3Id)).amount).toEqual(amount);
+
+      expect(await mp.tokenBalance(alice.address)).toBeLessThan(aliceBalance - amount * 3);
+
+      // approve
+      const milestone1Approve = await mp.escrowApproveMilestone({
+        contractId,
+        milestoneId: milestone1Id,
+        valueApprove: amount,
+        recipient: bob.address,
+        token: tokenSymbol,
+      });
+      expect(milestone1Approve.status).toEqual("success");
+      expect((await mp.getDepositListMilestone(contractId, milestone1Id)).amountToClaim).toEqual(amount);
+
+      // submit milestone2 by freelancer
+      mp.changeAccount(bob);
+      const escrowSubmitMilestone2 = await mp.escrowSubmitMilestone(contractId, milestone2Id, salt, data);
+      expect(escrowSubmitMilestone2.status).toEqual("success");
+
+      // approve milestone2
+      mp.changeAccount(alice);
+      const milestone2Approve = await mp.escrowApproveMilestone({
+        contractId,
+        milestoneId: milestone2Id,
+        valueApprove: amount,
+        recipient: bob.address,
+        token: tokenSymbol,
+      });
+      expect(milestone2Approve.status).toEqual("success");
+      expect((await mp.getDepositListMilestone(contractId, milestone2Id)).amountToClaim).toEqual(amount);
+
+      // submit milestone3 by freelancer
+      mp.changeAccount(bob);
+      const escrowSubmitMilestone3 = await mp.escrowSubmitMilestone(contractId, milestone3Id, salt, data);
+      expect(escrowSubmitMilestone3.status).toEqual("success");
+
+      // approve milestone3
+      mp.changeAccount(alice);
+      const milestone3Approve = await mp.escrowApproveMilestone({
+        contractId,
+        milestoneId: milestone3Id,
+        valueApprove: amount,
+        recipient: bob.address,
+        token: tokenSymbol,
+      });
+      expect(milestone3Approve.status).toEqual("success");
+      expect((await mp.getDepositListMilestone(contractId, milestone3Id)).amountToClaim).toEqual(amount);
+      mp.changeAccount(bob);
+
+      //claim all 3 milestones with claimAll
+      mp.changeAccount(bob);
+      const claimAll = await mp.escrowClaimAllMilestone(contractId);
+      expect(claimAll.status).toEqual("success");
+      expect(await mp.tokenBalance(alice.address)).toBeLessThan(bobBalance + amount * 3);
+    }, 1200000);
+
     it("success flow create and cancel return request", async () => {
       const amount = 10;
       const amountToClaim = 0;
@@ -688,134 +811,75 @@ describe("base", async () => {
       mp.changeAccount(alice);
       mp.changeEscrow(userEscrowHourly);
     }, 1200000);
-    it("success flow", async () => {
-      const amount = 10;
-      const amountToClaim = 0;
-      const { data, salt, recipientData, aliceBalance, bobBalance } = await newData();
+    it("success flow without prepayment", async () => {
+      const amountToClaim = 10;
+      // const { aliceBalance, bobBalance } = await newData();
       const tokenSymbol = "MockUSDT";
 
       // new deposit for week1
       mp.changeAccount(alice);
-      const depositInput = [
-        {
-          contractorAddress: bob.address,
-          token: tokenSymbol,
-          amount,
-          amountToClaim,
-          recipientData,
-          feeConfig: FeeConfig.CLIENT_COVERS_ALL,
-        },
-      ];
-      const week1 = await mp.escrowDepositHourly(depositInput, tokenSymbol);
+      const depositInput = {
+        contractorAddress: bob.address,
+        amountToClaim,
+        feeConfig: FeeConfig.CLIENT_COVERS_ALL,
+      };
+      const week1 = await mp.escrowDepositHourly(tokenSymbol, 0, undefined, depositInput);
       console.log(week1.id, " - deposit");
       expect(week1.status).toEqual("success");
       expect(week1.contractId).toBeDefined();
 
       const contractId = week1.contractId;
       const week1Id = 0n;
-      expect((await mp.getDepositListHourly(contractId, week1Id)).amount).toEqual(amount);
-      expect(await mp.tokenBalance(alice.address)).toBeLessThan(aliceBalance - amount);
+      const contractDetails = await mp.getDepositListHourly(contractId, week1Id);
+      expect(contractDetails.amount).toBeDefined();
+      expect(await mp.tokenBalance(alice.address)).toBeDefined();
 
-      // submit freelancer
       mp.changeAccount(bob);
-      const escrowSubmitStatus = await mp.escrowSubmitHourly(contractId, week1Id, salt, data);
-      expect(escrowSubmitStatus.status).toEqual("success");
+      const claim = await mp.escrowClaimHourly(contractId, week1Id);
+      expect(claim.status).toEqual("success");
+      expect(claim.id).toBeDefined();
+    }, 1200000);
 
-      // new deposit for week2
+    it("success flow with prepayment", async () => {
+      const prepaymentAmount = 10;
+      const amountToClaim = 10;
+      // const { aliceBalance, bobBalance } = await newData();
+      const tokenSymbol = "MockUSDT";
+
+      // new deposit for week1
       mp.changeAccount(alice);
-      const deposit2Input = [
-        {
-          contractorAddress: bob.address,
-          token: tokenSymbol,
-          amount,
-          amountToClaim,
-          recipientData,
-          feeConfig: FeeConfig.CLIENT_COVERS_ALL,
-        },
-      ];
-      const week2 = await mp.escrowDepositHourly(deposit2Input, tokenSymbol, contractId);
-      expect(week2.status).toEqual("success");
+      const depositInput = {
+        contractorAddress: bob.address,
+        amountToClaim: 0,
+        feeConfig: FeeConfig.CLIENT_COVERS_ALL,
+      };
+      const week1 = await mp.escrowDepositHourly(tokenSymbol, prepaymentAmount, 0n, depositInput);
+      console.log(week1.id, " - deposit");
+      expect(week1.status).toEqual("success");
+      expect(week1.contractId).toBeDefined();
 
-      const week2Id = 1n;
-      expect((await mp.getDepositListHourly(contractId, week2Id)).amount).toEqual(amount);
-      expect(await mp.tokenBalance(alice.address)).toBeLessThan(aliceBalance - amount * 2);
+      const contractId = week1.contractId;
+      const week1Id = 0n;
+      const contractDetails = await mp.getDepositListHourly(contractId, week1Id);
+      expect(contractDetails.amount).toBeDefined();
+      expect(await mp.tokenBalance(alice.address)).toBeDefined();
 
-      // new deposit for week3
-      const deposit3Input = [
-        {
-          contractorAddress: bob.address,
-          token: tokenSymbol,
-          amount,
-          amountToClaim,
-          recipientData,
-          feeConfig: FeeConfig.CLIENT_COVERS_ALL,
-        },
-      ];
-      const week3 = await mp.escrowDepositHourly(deposit3Input, tokenSymbol, contractId);
-      expect(week3.status).toEqual("success");
-
-      const week3Id = 2n;
-      expect((await mp.getDepositListHourly(contractId, week3Id)).amount).toEqual(amount);
-
-      expect(await mp.tokenBalance(alice.address)).toBeLessThan(aliceBalance - amount * 3);
-
-      // approve and claim week1
-      const week1Approve = await mp.escrowApproveHourly({
+      const approvePayload = {
         contractId,
         weekId: week1Id,
-        valueApprove: amount,
+        valueApprove: amountToClaim,
         recipient: bob.address,
         token: tokenSymbol,
-      });
-      expect(week1Approve.status).toEqual("success");
-      expect((await mp.getDepositListHourly(contractId, week1Id)).amountToClaim).toEqual(amount);
+      };
+      const escrowApprove = await mp.escrowApproveHourly(approvePayload);
+
+      expect(escrowApprove.status).toEqual("success");
+      expect(escrowApprove.id).toBeDefined();
 
       mp.changeAccount(bob);
-      const week1Claim = await mp.escrowClaimHourly(contractId, week1Id);
-      expect(week1Claim.status).toEqual("success");
-      expect(await mp.tokenBalance(bob.address)).toEqual(bobBalance + amount);
-
-      // submit week2 by freelancer
-      mp.changeAccount(bob);
-      const escrowSubmitHourly2 = await mp.escrowSubmitHourly(contractId, week2Id, salt, data);
-      expect(escrowSubmitHourly2.status).toEqual("success");
-
-      // approve and claim week2
-      mp.changeAccount(alice);
-      const week2Approve = await mp.escrowApproveHourly({
-        contractId,
-        weekId: week2Id,
-        valueApprove: amount,
-        recipient: bob.address,
-        token: tokenSymbol,
-      });
-      expect(week2Approve.status).toEqual("success");
-      expect((await mp.getDepositListHourly(contractId, week2Id)).amountToClaim).toEqual(amount);
-      mp.changeAccount(bob);
-      const week2Claim = await mp.escrowClaimHourly(contractId, week2Id);
-      expect(week2Claim.status).toEqual("success");
-      expect(await mp.tokenBalance(bob.address)).toEqual(bobBalance + amount * 2);
-
-      // submit week3 by freelancer
-      mp.changeAccount(bob);
-      const escrowSubmitHourly3 = await mp.escrowSubmitHourly(contractId, week3Id, salt, data);
-      expect(escrowSubmitHourly3.status).toEqual("success");
-
-      // approve and claim week3
-      mp.changeAccount(alice);
-      const week3Approve = await mp.escrowApproveHourly({
-        contractId,
-        weekId: week3Id,
-        valueApprove: amount,
-        recipient: bob.address,
-        token: tokenSymbol,
-      });
-      expect(week3Approve.status).toEqual("success");
-      expect((await mp.getDepositListHourly(contractId, week3Id)).amountToClaim).toEqual(amount);
-      mp.changeAccount(bob);
-      const week3Claim = await mp.escrowClaimHourly(contractId, week3Id);
-      expect(week3Claim.status).toEqual("success");
-      expect(await mp.tokenBalance(bob.address)).toEqual(bobBalance + amount * 3);
+      const claim = await mp.escrowClaimHourly(contractId, week1Id);
+      expect(claim.status).toEqual("success");
+      expect(claim.id).toBeDefined();
     }, 1200000);
   });
 

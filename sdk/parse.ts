@@ -330,16 +330,16 @@ export function parseMilestoneInput(data: Hex, chainName: ChainNameEnum): Transa
       return {
         functionName: "deposit",
         depositId: inputMilestone.args[0],
-        contractor: inputMilestone.args[1][0]?.contractor,
-        tokenAddress: inputMilestone.args[1][0]?.paymentToken,
+        contractor: inputMilestone.args[2][0]?.contractor,
+        tokenAddress: inputMilestone.args[1],
         tokenSymbol: "MockUSDT", // FIXME remove hardcode
-        amount: inputMilestone.args[1].reduce((accumulator, value) => {
+        amount: inputMilestone.args[2].reduce((accumulator, value) => {
           accumulator += Number(formatUnits(value.amount, 6));
           return accumulator;
         }, 0),
         timeLock: 0n,
-        feeConfig: inputMilestone.args[1][0]?.feeConfig,
-        recipientData: inputMilestone.args[1][0]?.contractorData,
+        feeConfig: inputMilestone.args[2][0]?.feeConfig,
+        recipientData: inputMilestone.args[2][0]?.contractorData,
       } as EscrowDepositMilestoneInput;
     case "withdraw":
       return {

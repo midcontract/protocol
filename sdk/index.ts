@@ -898,7 +898,7 @@ export class MidcontractProtocol {
       throw new NotSetError("valueAdditional");
     }
 
-    const deposit = await this.getDepositList(contractId);
+    const deposit = await this.getDepositListHourly(contractId, weekId);
     const token = this.dataToken(deposit.paymentToken);
     const account = this.account;
     const { totalDepositAmount } = await this.escrowDepositAmount(value, deposit.feeConfig);

@@ -27,6 +27,7 @@ export enum RefillType {
 }
 
 export enum DisputeWinner {
+  NONE,
   CLIENT,
   CONTRACTOR,
   SPLIT,

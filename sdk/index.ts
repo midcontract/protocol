@@ -111,6 +111,10 @@ export interface ApproveInputHourly {
   token: SymbolToken;
 }
 
+export interface ApproveByAdminInputHourly extends ApproveInputHourly {
+  initializeNewWeek: boolean;
+}
+
 export type TransactionStatus = "pending" | "success" | "reverted";
 
 export interface TransactionData {
@@ -1004,6 +1008,50 @@ export class MidcontractProtocol {
       account,
       args: [input.contractId, input.weekId, parseUnits(input.valueApprove.toString(), token.decimals), recipient],
       functionName: "approve",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+    return {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+  }
+
+  async escrowApproveByAdminHourly(input: ApproveByAdminInputHourly, waitReceipt = true): Promise<TransactionId> {
+    input.token = input.token || "MockUSDT";
+    input.valueApprove = input.valueApprove || 0;
+    const account = this.account;
+    const recipient = input.recipient || "0x0000000000000000000000000000000000000000";
+    const token = this.dataToken(input.token);
+
+    if (input.valueApprove == 0) {
+      throw new NotSetError("valueAdditional");
+    }
+    let deposit;
+
+    if (!input.initializeNewWeek) {
+      deposit = await this.getDepositListHourly(input.contractId, input.weekId);
+    } else {
+      const previousWeekId = BigInt(Number(input.weekId) - 1);
+      deposit = await this.getDepositListHourly(input.contractId, previousWeekId);
+    }
+
+    const { totalDepositAmount } = await this.escrowDepositAmount(input.valueApprove, deposit.feeConfig);
+    await this.tokenRequireAllowance(account.address, totalDepositAmount, input.token);
+    await this.tokenRequireAllowance(account.address, totalDepositAmount, input.token);
+
+    const { request } = await this.public.simulateContract({
+      address: this.escrow,
+      abi: this.hourlyAbi,
+      account,
+      args: [
+        input.contractId,
+        input.weekId,
+        parseUnits(input.valueApprove.toString(), token.decimals),
+        recipient,
+        input.initializeNewWeek,
+      ],
+      functionName: "adminApprove",
     });
     const hash = await this.send(request);
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);

@@ -353,6 +353,11 @@ export function parseMilestoneInput(data: Hex, chainName: ChainNameEnum): Transa
         depositId: inputMilestone.args[0],
         escrowMilestoneId: inputMilestone.args[1],
       } as EscrowClaimMilestoneInput;
+    case "claimAll":
+      return {
+        functionName: "claimAll",
+        depositId: inputMilestone.args[0],
+      } as EscrowClaimMilestoneInput;
     case "submit":
       return {
         functionName: "submit",
@@ -464,6 +469,15 @@ export function parseHourlyInput(data: Hex, chainName: ChainNameEnum): Transacti
         escrowWeekId: inputHourly.args[1],
         valueApprove: Number(formatUnits(inputHourly.args[2], 6)), // FIXME remove hardcode
         recipient: inputHourly.args[3],
+      } as EscrowApproveHourlyInput;
+    case "adminApprove":
+      return {
+        functionName: "adminApprove",
+        depositId: inputHourly.args[0],
+        escrowWeekId: inputHourly.args[1],
+        valueApprove: Number(formatUnits(inputHourly.args[2], 6)), // FIXME remove hardcode
+        recipient: inputHourly.args[3],
+        initializeNewWeek: inputHourly.args[4],
       } as EscrowApproveHourlyInput;
     case "refill":
       return {

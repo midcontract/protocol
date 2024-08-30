@@ -2,14 +2,14 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { privateKeyToAccount } from "viem/accounts";
 import { MidcontractProtocol } from "./.";
 import type { Address } from "viem";
-import { DepositStatus, FeeConfig } from "./Deposit";
+import { DepositStatus, DisputeWinner, FeeConfig } from "./Deposit";
 
 const random = (min: number, max: number) => Math.round(Math.random() * (max - min) + min);
 const getDepositId = () => BigInt(random(100000, 1000000));
 const getData = () => getDepositId().toString();
 
 let userEscrow: Address;
-let userEscrowMilestone: Address = "0x01f3C98428c119e55c65DC82af09e5C18316253f";
+let userEscrowMilestone: Address;
 let userEscrowHourly: Address;
 
 const alice = privateKeyToAccount("0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d");
@@ -620,6 +620,9 @@ describe("base", async () => {
       expect(milestone1.status).toEqual("success");
       expect(milestone1.contractId).toBeDefined();
 
+      const parsedData = await mp.transactionByHashMilestone(milestone1.id);
+      expect(parsedData).toBeDefined();
+
       const contractId = milestone1.contractId;
       const milestone1Id = 0n;
       const milestone1Data = await mp.getDepositListMilestone(contractId, milestone1Id);
@@ -824,7 +827,6 @@ describe("base", async () => {
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
       const week1 = await mp.escrowDepositHourly(tokenSymbol, 0, undefined, depositInput);
-      console.log(week1.id, " - deposit");
       expect(week1.status).toEqual("success");
       expect(week1.contractId).toBeDefined();
 
@@ -881,6 +883,443 @@ describe("base", async () => {
       expect(claim.status).toEqual("success");
       expect(claim.id).toBeDefined();
     }, 1200000);
+
+    it("success flow with prepayment and auto approve first week", async () => {
+      const prepaymentAmount = 10;
+      const amountToClaim = 5;
+      const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
+      const bobBalance = await mp.tokenBalance(bob.address, "MockUSDT");
+      const tokenSymbol = "MockUSDT";
+
+      /* deposit prepayment */
+      mp.changeAccount(alice);
+      const depositInput = {
+        contractorAddress: bob.address,
+        amountToClaim: 0,
+        feeConfig: FeeConfig.CLIENT_COVERS_ALL,
+      };
+      const prepayment = await mp.escrowDepositHourly(tokenSymbol, prepaymentAmount, 0n, depositInput);
+      expect(prepayment.status).toEqual("success");
+      expect(prepayment.contractId).toBeDefined();
+
+      /* Get contract and first week */
+      const contractId = prepayment.contractId;
+      const week1Id = 0n;
+      const contractDetails = await mp.getDepositListHourly(contractId, week1Id);
+      expect(contractDetails.amount).toEqual(prepaymentAmount);
+      expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(aliceBalance - prepaymentAmount);
+
+      /*  Auto approve by admin for first week */
+      mp.changeAccount(admin);
+      const adminApprovePayload = {
+        contractId,
+        weekId: week1Id,
+        valueApprove: amountToClaim,
+        recipient: bob.address,
+        token: tokenSymbol,
+        initializeNewWeek: false,
+      };
+      const escrowApproveByAdmin = await mp.escrowApproveByAdminHourly(adminApprovePayload);
+
+      expect(escrowApproveByAdmin.status).toEqual("success");
+      expect(escrowApproveByAdmin.id).toBeDefined();
+
+      /* Claim first week by freelancer */
+      mp.changeAccount(bob);
+      const claim = await mp.escrowClaimHourly(contractId, week1Id);
+      expect(claim.status).toEqual("success");
+      expect(claim.id).toBeDefined();
+      expect(await mp.tokenBalance(bob.address)).toBeLessThanOrEqual(bobBalance + amountToClaim);
+
+      /* Get contract and first week */
+      const contractDetailsAfterAutoapprove = await mp.getDepositListHourly(contractId, week1Id);
+      expect(contractDetailsAfterAutoapprove.amount).toEqual(prepaymentAmount - amountToClaim);
+    }, 1200000);
+
+    it("success flow with prepayment and auto approve second week", async () => {
+      const prepaymentAmount = 10;
+      const amountToClaim = 5;
+      const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
+      const bobBalance = await mp.tokenBalance(bob.address, "MockUSDT");
+      const tokenSymbol = "MockUSDT";
+
+      /* deposit prepayment */
+      mp.changeAccount(alice);
+      const depositInput = {
+        contractorAddress: bob.address,
+        amountToClaim: 0,
+        feeConfig: FeeConfig.CLIENT_COVERS_ALL,
+      };
+      const prepayment = await mp.escrowDepositHourly(tokenSymbol, prepaymentAmount, 0n, depositInput);
+      expect(prepayment.status).toEqual("success");
+      expect(prepayment.contractId).toBeDefined();
+      expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(aliceBalance - prepaymentAmount);
+
+      /* get contract with first week */
+      const contractId = prepayment.contractId;
+      const week1Id = 0n;
+      const contractDetails = await mp.getDepositListHourly(contractId, week1Id);
+      expect(contractDetails.amount).toBeDefined();
+      expect(contractDetails.amount).toEqual(prepaymentAmount);
+
+      /* Deposit for first week */
+      const approvePayload = {
+        contractId,
+        weekId: week1Id,
+        valueApprove: amountToClaim,
+        recipient: bob.address,
+        token: tokenSymbol,
+      };
+      const escrowApprove = await mp.escrowApproveHourly(approvePayload);
+
+      expect(escrowApprove.status).toEqual("success");
+      expect(escrowApprove.id).toBeDefined();
+      expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(
+        aliceBalance - (prepaymentAmount + amountToClaim)
+      );
+
+      /* Claim first week by freelancer */
+      mp.changeAccount(bob);
+      const claimFirstWeek = await mp.escrowClaimHourly(contractId, week1Id);
+      expect(claimFirstWeek.status).toEqual("success");
+      expect(claimFirstWeek.id).toBeDefined();
+      expect(await mp.tokenBalance(bob.address)).toBeGreaterThanOrEqual(bobBalance + amountToClaim);
+
+      /* Auto approve second week by admin */
+      mp.changeAccount(admin);
+
+      const week2Id = 1n;
+      const adminApprovePayload = {
+        contractId,
+        weekId: week2Id,
+        valueApprove: amountToClaim,
+        recipient: bob.address,
+        token: tokenSymbol,
+        initializeNewWeek: true,
+      };
+      const escrowApproveByAdmin = await mp.escrowApproveByAdminHourly(adminApprovePayload);
+
+      expect(escrowApproveByAdmin.status).toEqual("success");
+      expect(escrowApproveByAdmin.id).toBeDefined();
+
+      /* Get contract with first week */
+      const contractDetailsAfterAutoApprove = await mp.getDepositListHourly(contractId, week2Id);
+      expect(contractDetailsAfterAutoApprove.amount).toBeDefined();
+      expect(contractDetailsAfterAutoApprove.amount).toEqual(prepaymentAmount - amountToClaim);
+
+      /* Claim second week by freelancer */
+      mp.changeAccount(bob);
+      const claimSecondWeek = await mp.escrowClaimHourly(contractId, week2Id);
+      expect(claimSecondWeek.status).toEqual("success");
+      expect(claimSecondWeek.id).toBeDefined();
+      expect(await mp.tokenBalance(bob.address)).toBeGreaterThanOrEqual(bobBalance + amountToClaim * 2);
+    }, 1200000);
+
+    it("success flow with prepayment and escrow return request", async () => {
+      const prepaymentAmount = 10;
+      const amountToClaim = 5;
+      const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
+      const bobBalance = await mp.tokenBalance(bob.address, "MockUSDT");
+      const tokenSymbol = "MockUSDT";
+
+      /* deposit prepayment */
+      mp.changeAccount(alice);
+      const depositInput = {
+        contractorAddress: bob.address,
+        amountToClaim: 0,
+        feeConfig: FeeConfig.CLIENT_COVERS_ALL,
+      };
+      const prepayment = await mp.escrowDepositHourly(tokenSymbol, prepaymentAmount, 0n, depositInput);
+      expect(prepayment.status).toEqual("success");
+      expect(prepayment.contractId).toBeDefined();
+      expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(aliceBalance - prepaymentAmount);
+
+      /* get contract with first week */
+      const contractId = prepayment.contractId;
+      const week1Id = 0n;
+      const contractDetails = await mp.getDepositListHourly(contractId, week1Id);
+      expect(contractDetails.amount).toBeDefined();
+      expect(contractDetails.amount).toEqual(prepaymentAmount);
+
+      /* Deposit for first week */
+      const approvePayload = {
+        contractId,
+        weekId: week1Id,
+        valueApprove: amountToClaim,
+        recipient: bob.address,
+        token: tokenSymbol,
+      };
+      const escrowApprove = await mp.escrowApproveHourly(approvePayload);
+
+      expect(escrowApprove.status).toEqual("success");
+      expect(escrowApprove.id).toBeDefined();
+      expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(
+        aliceBalance - (prepaymentAmount + amountToClaim)
+      );
+
+      /* Claim first week by freelancer */
+      mp.changeAccount(bob);
+      const claimFirstWeek = await mp.escrowClaimHourly(contractId, week1Id);
+      expect(claimFirstWeek.status).toEqual("success");
+      expect(claimFirstWeek.id).toBeDefined();
+      expect(await mp.tokenBalance(bob.address)).toBeGreaterThanOrEqual(bobBalance + amountToClaim);
+
+      /* Create escrow return request */
+      mp.changeAccount(alice);
+      const requestReturn = await mp.requestReturnHourly(contractId, week1Id);
+      expect(requestReturn.status).toEqual("success");
+      expect(requestReturn.id).toBeDefined();
+
+      /* Approve return request */
+      mp.changeAccount(bob);
+      const approveReturn = await mp.approveReturnHourly(contractId, week1Id);
+      expect(approveReturn.status).toEqual("success");
+      expect(approveReturn.id).toBeDefined();
+    }, 1200000);
+
+    it("success flow - dispute, client win", async () => {
+      const prepaymentAmount = 10;
+      const amountToClaim = 5;
+      const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
+      const bobBalance = await mp.tokenBalance(bob.address, "MockUSDT");
+      const tokenSymbol = "MockUSDT";
+
+      /* deposit prepayment */
+      mp.changeAccount(alice);
+      const depositInput = {
+        contractorAddress: bob.address,
+        amountToClaim: 0,
+        feeConfig: FeeConfig.CLIENT_COVERS_ALL,
+      };
+      const prepayment = await mp.escrowDepositHourly(tokenSymbol, prepaymentAmount, 0n, depositInput);
+      expect(prepayment.status).toEqual("success");
+      expect(prepayment.contractId).toBeDefined();
+      expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(aliceBalance - prepaymentAmount);
+
+      /* get contract with first week */
+      const contractId = prepayment.contractId;
+      const week1Id = 0n;
+      const contractDetails = await mp.getDepositListHourly(contractId, week1Id);
+      expect(contractDetails.amount).toBeDefined();
+      expect(contractDetails.amount).toEqual(prepaymentAmount);
+
+      /* Deposit for first week */
+      const approvePayload = {
+        contractId,
+        weekId: week1Id,
+        valueApprove: amountToClaim,
+        recipient: bob.address,
+        token: tokenSymbol,
+      };
+      const escrowApprove = await mp.escrowApproveHourly(approvePayload);
+
+      expect(escrowApprove.status).toEqual("success");
+      expect(escrowApprove.id).toBeDefined();
+      expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(
+        aliceBalance - (prepaymentAmount + amountToClaim)
+      );
+
+      /* Claim first week by freelancer */
+      mp.changeAccount(bob);
+      const claimFirstWeek = await mp.escrowClaimHourly(contractId, week1Id);
+      expect(claimFirstWeek.status).toEqual("success");
+      expect(claimFirstWeek.id).toBeDefined();
+      expect(await mp.tokenBalance(bob.address)).toBeGreaterThanOrEqual(bobBalance + amountToClaim);
+
+      /* Create escrow return request */
+      mp.changeAccount(alice);
+      const requestReturn = await mp.requestReturnHourly(contractId, week1Id);
+      expect(requestReturn.status).toEqual("success");
+      expect(requestReturn.id).toBeDefined();
+
+      /* create dispute */
+      mp.changeAccount(bob);
+      const createDispute = await mp.createDisputeHourly(contractId, week1Id);
+      expect(createDispute.status).toEqual("success");
+      expect(createDispute.id).toBeDefined();
+
+      /* resolve dispute */
+      mp.changeAccount(admin);
+      const resolveDispute = await mp.resolveDisputeHourly(
+        contractId,
+        week1Id,
+        DisputeWinner.CLIENT,
+        prepaymentAmount,
+        0
+      );
+      expect(resolveDispute.status).toEqual("success");
+      expect(resolveDispute.id).toBeDefined();
+
+      mp.changeAccount(alice);
+      const withdraw = await mp.escrowWithdrawHourly(contractId, week1Id);
+      expect(withdraw.status).toEqual("success");
+      expect(withdraw.id).toBeDefined();
+    }, 1200000);
+
+    it("success flow - dispute, freelancer win", async () => {
+      const prepaymentAmount = 10;
+      const amountToClaim = 5;
+      const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
+      const bobBalance = await mp.tokenBalance(bob.address, "MockUSDT");
+      const tokenSymbol = "MockUSDT";
+
+      /* deposit prepayment */
+      mp.changeAccount(alice);
+      const depositInput = {
+        contractorAddress: bob.address,
+        amountToClaim: 0,
+        feeConfig: FeeConfig.CLIENT_COVERS_ALL,
+      };
+      const prepayment = await mp.escrowDepositHourly(tokenSymbol, prepaymentAmount, 0n, depositInput);
+      expect(prepayment.status).toEqual("success");
+      expect(prepayment.contractId).toBeDefined();
+      expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(aliceBalance - prepaymentAmount);
+
+      /* get contract with first week */
+      const contractId = prepayment.contractId;
+      const week1Id = 0n;
+      const contractDetails = await mp.getDepositListHourly(contractId, week1Id);
+      expect(contractDetails.amount).toBeDefined();
+      expect(contractDetails.amount).toEqual(prepaymentAmount);
+
+      /* Deposit for first week */
+      const approvePayload = {
+        contractId,
+        weekId: week1Id,
+        valueApprove: amountToClaim,
+        recipient: bob.address,
+        token: tokenSymbol,
+      };
+      const escrowApprove = await mp.escrowApproveHourly(approvePayload);
+
+      expect(escrowApprove.status).toEqual("success");
+      expect(escrowApprove.id).toBeDefined();
+      expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(
+        aliceBalance - (prepaymentAmount + amountToClaim)
+      );
+
+      /* Claim first week by freelancer */
+      mp.changeAccount(bob);
+      const claimFirstWeek = await mp.escrowClaimHourly(contractId, week1Id);
+      expect(claimFirstWeek.status).toEqual("success");
+      expect(claimFirstWeek.id).toBeDefined();
+      expect(await mp.tokenBalance(bob.address)).toBeGreaterThanOrEqual(bobBalance + amountToClaim);
+
+      /* Create escrow return request */
+      mp.changeAccount(alice);
+      const requestReturn = await mp.requestReturnHourly(contractId, week1Id);
+      expect(requestReturn.status).toEqual("success");
+      expect(requestReturn.id).toBeDefined();
+
+      /* create dispute */
+      mp.changeAccount(bob);
+      const createDispute = await mp.createDisputeHourly(contractId, week1Id);
+      expect(createDispute.status).toEqual("success");
+      expect(createDispute.id).toBeDefined();
+
+      /* resolve dispute */
+      mp.changeAccount(admin);
+      const resolveDispute = await mp.resolveDisputeHourly(
+        contractId,
+        week1Id,
+        DisputeWinner.CONTRACTOR,
+        0,
+        prepaymentAmount
+      );
+      expect(resolveDispute.status).toEqual("success");
+      expect(resolveDispute.id).toBeDefined();
+
+      mp.changeAccount(bob);
+      const claim = await mp.escrowClaimHourly(contractId, week1Id);
+      expect(claim.status).toEqual("success");
+      expect(claim.id).toBeDefined();
+    }, 1200000);
+
+    it("success flow - dispute, split", async () => {
+      const prepaymentAmount = 10;
+      const amountToClaim = 5;
+      const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
+      const bobBalance = await mp.tokenBalance(bob.address, "MockUSDT");
+      const tokenSymbol = "MockUSDT";
+
+      /* deposit prepayment */
+      mp.changeAccount(alice);
+      const depositInput = {
+        contractorAddress: bob.address,
+        amountToClaim: 0,
+        feeConfig: FeeConfig.CLIENT_COVERS_ALL,
+      };
+      const prepayment = await mp.escrowDepositHourly(tokenSymbol, prepaymentAmount, 0n, depositInput);
+      expect(prepayment.status).toEqual("success");
+      expect(prepayment.contractId).toBeDefined();
+      expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(aliceBalance - prepaymentAmount);
+
+      /* get contract with first week */
+      const contractId = prepayment.contractId;
+      const week1Id = 0n;
+      const contractDetails = await mp.getDepositListHourly(contractId, week1Id);
+      expect(contractDetails.amount).toBeDefined();
+      expect(contractDetails.amount).toEqual(prepaymentAmount);
+
+      /* Deposit for first week */
+      const approvePayload = {
+        contractId,
+        weekId: week1Id,
+        valueApprove: amountToClaim,
+        recipient: bob.address,
+        token: tokenSymbol,
+      };
+      const escrowApprove = await mp.escrowApproveHourly(approvePayload);
+
+      expect(escrowApprove.status).toEqual("success");
+      expect(escrowApprove.id).toBeDefined();
+      expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(
+        aliceBalance - (prepaymentAmount + amountToClaim)
+      );
+
+      /* Claim first week by freelancer */
+      mp.changeAccount(bob);
+      const claimFirstWeek = await mp.escrowClaimHourly(contractId, week1Id);
+      expect(claimFirstWeek.status).toEqual("success");
+      expect(claimFirstWeek.id).toBeDefined();
+      expect(await mp.tokenBalance(bob.address)).toBeGreaterThanOrEqual(bobBalance + amountToClaim);
+
+      /* Create escrow return request */
+      mp.changeAccount(alice);
+      const requestReturn = await mp.requestReturnHourly(contractId, week1Id);
+      expect(requestReturn.status).toEqual("success");
+      expect(requestReturn.id).toBeDefined();
+
+      /* create dispute */
+      mp.changeAccount(bob);
+      const createDispute = await mp.createDisputeHourly(contractId, week1Id);
+      expect(createDispute.status).toEqual("success");
+      expect(createDispute.id).toBeDefined();
+
+      /* resolve dispute */
+      mp.changeAccount(admin);
+      const freelancerDisputeAmount = 5;
+      const clientDisputeAmount = 5;
+      const resolveDispute = await mp.resolveDisputeHourly(
+        contractId,
+        week1Id,
+        DisputeWinner.SPLIT,
+        clientDisputeAmount,
+        freelancerDisputeAmount
+      );
+      expect(resolveDispute.status).toEqual("success");
+      expect(resolveDispute.id).toBeDefined();
+
+      mp.changeAccount(alice);
+      const withdraw = await mp.escrowWithdrawHourly(contractId, week1Id);
+      expect(withdraw.status).toEqual("success");
+      expect(withdraw.id).toBeDefined();
+
+      mp.changeAccount(bob);
+      const claim = await mp.escrowClaimHourly(contractId, week1Id);
+      expect(claim.status).toEqual("success");
+      expect(claim.id).toBeDefined();
+    }, 1200000);
   });
 
   it("blockNumber", async () => {
@@ -903,11 +1342,20 @@ describe("base", async () => {
     );
     expect(transaction).toBeDefined();
   });
-
-  it("getTransactionByHash", async () => {
-    const transactionData = await mp.transactionByHash(
-      "0xe5a2752ba751cb71f4a7f8da521a3265c14e31301dc633b390571bd2547d5534"
-    );
-    expect(transactionData).toBeDefined();
-  });
 });
+
+it("getTransactionByHash", async () => {
+  const transactionData = await mp.transactionByHash(
+    "0x3eddf07975631fcadb45470d54cb8d0bb6363a94a17892ff89ac87c7c3f3b8d3"
+  );
+  expect(transactionData).toBeDefined();
+
+  const transactionParse = await mp.transactionParse(transactionData);
+  expect(transactionParse).toBeDefined();
+}, 1200000);
+
+it("mint mockUSDT", async () => {
+  mp.changeAccount(alice);
+  const mintResponse = await mp.mintMockUSDTTokens();
+  expect(mintResponse).toBeDefined();
+}, 1200000);

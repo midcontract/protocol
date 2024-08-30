@@ -49,13 +49,14 @@ import {
   SimulateError,
 } from "@/Error";
 import { blastSepolia } from "@/chain/blastSepolia";
-import { parseHourlyInput, parseInput, parseMilestoneInput, type TransactionInput } from "@/parse";
+import { type DecodedInput, parseHourlyInput, parseInput, parseMilestoneInput, type TransactionInput } from "@/parse";
 import { FeeManager } from "@/feeManager/feeManager";
 import { Deposit, DepositStatus, DisputeWinner, type FeeConfig, RefillType } from "@/Deposit";
 import { amoyEscrowFactoryAbi, escrowFactoryAbi } from "@/abi/EscrowFactory";
 import { amoyEscrowMilestone, escrowMilestone } from "@/abi/EscrowMilestone";
 import { amoyEscrowHourly, escrowHourly } from "@/abi/EscrowHourly";
 import { amoyFeeManagerAbi, feeManagerAbi } from "@/abi/FeeManager";
+import { embeddedAbi, lightAccountAbi } from "@/abi/Embedded";
 
 export interface DepositAmount {
   totalDepositAmount: number;
@@ -1455,6 +1456,40 @@ export class MidcontractProtocol {
     };
   }
 
+  async mintMockUSDTTokens(): Promise<TransactionId> {
+    const token = this.dataToken("MockUSDT");
+
+    const account = this.account;
+    const amount = parseUnits("1000", token.decimals);
+
+    const mintAbi = [
+      {
+        inputs: [
+          { internalType: "address", name: "account", type: "address" },
+          { internalType: "uint256", name: "amount", type: "uint256" },
+        ],
+        name: "mint",
+        outputs: [{ internalType: "bool", name: "", type: "bool" }],
+        stateMutability: "nonpayable",
+        type: "function",
+      },
+    ];
+
+    const { request } = await this.public.simulateContract({
+      address: token.address,
+      abi: mintAbi,
+      account,
+      args: [account.address, amount],
+      functionName: "mint",
+    });
+    const hash = await this.send(request);
+    const receipt = await this.getTransactionReceipt(hash, true);
+    return {
+      id: hash,
+      status: receipt ? receipt.status : "pending",
+    };
+  }
+
   async deployEscrow(): Promise<{
     userEscrow: Address;
     salt: Hash;
@@ -1542,13 +1577,19 @@ export class MidcontractProtocol {
   }
 
   async transactionByHash(hash: Hash, waitReceipt = false): Promise<TransactionData> {
+    let isEmbedded = false;
     const transaction = await this.public.getTransaction({
       hash,
     });
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+
+    const embeddedAddress = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
+    if (transaction.to?.toLowerCase() === embeddedAddress.toLowerCase()) {
+      isEmbedded = true;
+    }
     return {
       transaction,
-      input: parseInput(transaction.input, this.contractList.chainName),
+      input: parseInput(transaction.input, this.contractList.chainName, isEmbedded),
       status: receipt ? receipt.status : "pending",
       receipt,
     };
@@ -1559,13 +1600,20 @@ export class MidcontractProtocol {
   }
 
   async transactionByHashMilestone(hash: Hash, waitReceipt = false): Promise<TransactionData> {
+    let isEmbedded = false;
     const transaction = await this.public.getTransaction({
       hash,
     });
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+
+    const embeddedAddress = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
+    if (transaction.to === embeddedAddress) {
+      isEmbedded = true;
+    }
+
     return {
       transaction,
-      input: parseMilestoneInput(transaction.input, this.contractList.chainName),
+      input: parseMilestoneInput(transaction.input, this.contractList.chainName, isEmbedded),
       status: receipt ? receipt.status : "pending",
       receipt,
     };
@@ -1576,24 +1624,36 @@ export class MidcontractProtocol {
   }
 
   async transactionByHashHourly(hash: Hash, waitReceipt = false): Promise<TransactionData> {
+    let isEmbedded = false;
     const transaction = await this.public.getTransaction({
       hash,
     });
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+
+    const embeddedAddress = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
+    if (transaction.to === embeddedAddress) {
+      isEmbedded = true;
+    }
+
     return {
       transaction,
-      input: parseHourlyInput(transaction.input, this.contractList.chainName),
+      input: parseHourlyInput(transaction.input, this.contractList.chainName, isEmbedded),
       status: receipt ? receipt.status : "pending",
       receipt,
     };
   }
 
   async transactionParse(data: TransactionData) {
+    let isEmbedded = false;
     const { transaction, receipt } = data;
-    if (BigInt(transaction.to || "0") != BigInt(this.escrow)) {
+    const embeddedAddress = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
+    if (transaction.to?.toLowerCase() === embeddedAddress.toLowerCase()) {
+      isEmbedded = true;
+    }
+    if (!isEmbedded && BigInt(transaction.to || "0") != BigInt(this.escrow)) {
       throw new NotSupportError(`contract ${transaction.to} ${this.escrow}`);
     }
-    const input = await this.parseInput(transaction.input);
+    const input = await this.parseInput(transaction.input, isEmbedded);
     const events = await this.parseLogs(receipt ? receipt.logs : []).then(logs =>
       logs.map(log => {
         return {
@@ -1609,11 +1669,18 @@ export class MidcontractProtocol {
   }
 
   async transactionParseMilestone(data: TransactionData) {
+    let isEmbedded = false;
     const { transaction, receipt } = data;
-    if (BigInt(transaction.to || "0") != BigInt(this.escrow)) {
+
+    const embeddedAddress = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
+    if (transaction.to?.toLowerCase() === embeddedAddress.toLowerCase()) {
+      isEmbedded = true;
+    }
+
+    if (!isEmbedded && BigInt(transaction.to || "0") != BigInt(this.escrow)) {
       throw new NotSupportError(`contract ${transaction.to} ${this.escrow}`);
     }
-    const input = await this.parseInputMilestone(transaction.input);
+    const input = await this.parseInputMilestone(transaction.input, isEmbedded);
     const events = await this.parseLogsMilestone(receipt ? receipt.logs : []).then(logs =>
       logs.map(log => {
         return {
@@ -1629,11 +1696,18 @@ export class MidcontractProtocol {
   }
 
   async transactionParseHourly(data: TransactionData) {
+    let isEmbedded = false;
     const { transaction, receipt } = data;
+
+    const embeddedAddress = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
+    if (transaction.to?.toLowerCase() === embeddedAddress.toLowerCase()) {
+      isEmbedded = true;
+    }
+
     if (BigInt(transaction.to || "0") != BigInt(this.escrow)) {
       throw new NotSupportError(`contract ${transaction.to} ${this.escrow}`);
     }
-    const input = await this.parseInputHourly(transaction.input);
+    const input = await this.parseInputHourly(transaction.input, isEmbedded);
     const events = await this.parseLogsHourly(receipt ? receipt.logs : []).then(logs =>
       logs.map(log => {
         return {
@@ -1685,25 +1759,86 @@ export class MidcontractProtocol {
     });
   }
 
-  private async parseInput(data: Hex) {
-    return decodeFunctionData({
-      abi: this.fixedPriceAbi,
-      data,
-    });
+  private async parseInput(data: Hex, isEmbedded: boolean = false) {
+    if (isEmbedded) {
+      const handleOpsInput = decodeFunctionData({
+        abi: embeddedAbi,
+        data: data,
+      }) as { args: readonly DecodedInput[][] };
+
+      if (!handleOpsInput || !handleOpsInput.args || !!handleOpsInput.args.length) {
+        throw new Error("asdas");
+      }
+
+      const handleOpsData = handleOpsInput.args[0]?.[0]?.callData;
+
+      const executeInput = decodeFunctionData({
+        abi: lightAccountAbi,
+        data: handleOpsData as Hash,
+      });
+
+      return decodeFunctionData({
+        abi: this.fixedPriceAbi,
+        data: executeInput.args[2] as `0x${string}`,
+      });
+    } else {
+      return decodeFunctionData({
+        abi: this.fixedPriceAbi,
+        data,
+      });
+    }
   }
 
-  private async parseInputMilestone(data: Hex) {
-    return decodeFunctionData({
-      abi: this.milestoneAbi,
-      data,
-    });
+  private async parseInputMilestone(data: Hex, isEmbedded: boolean = false) {
+    if (isEmbedded) {
+      const handleOpsInput = decodeFunctionData({
+        abi: embeddedAbi,
+        data: data,
+      }) as { args: readonly DecodedInput[][] };
+
+      const handleOpsData = handleOpsInput?.args[0]?.[0]?.callData;
+
+      const executeInput = decodeFunctionData({
+        abi: lightAccountAbi,
+        data: handleOpsData as Hash,
+      });
+
+      return decodeFunctionData({
+        abi: this.milestoneAbi,
+        data: executeInput.args[2] as `0x${string}`,
+      });
+    } else {
+      return decodeFunctionData({
+        abi: this.milestoneAbi,
+        data,
+      });
+    }
   }
 
-  private async parseInputHourly(data: Hex) {
-    return decodeFunctionData({
-      abi: this.hourlyAbi,
-      data,
-    });
+  private async parseInputHourly(data: Hex, isEmbedded: boolean = false) {
+    if (isEmbedded) {
+      const handleOpsInput = decodeFunctionData({
+        abi: embeddedAbi,
+        data: data,
+      }) as { args: readonly DecodedInput[][] };
+
+      const handleOpsData = handleOpsInput?.args[0]?.[0]?.callData;
+
+      const executeInput = decodeFunctionData({
+        abi: lightAccountAbi,
+        data: handleOpsData as Hash,
+      });
+
+      return decodeFunctionData({
+        abi: this.hourlyAbi,
+        data: executeInput.args[2] as `0x${string}`,
+      });
+    } else {
+      return decodeFunctionData({
+        abi: this.hourlyAbi,
+        data,
+      });
+    }
   }
 
   private async send(input: WriteContractParameters): Promise<Hash> {

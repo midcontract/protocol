@@ -6,6 +6,7 @@ import { DepositStatus, type DisputeWinner, RefillType } from "@/Deposit";
 import { amoyEscrowHourly, escrowHourly } from "@/abi/EscrowHourly";
 import { amoyEscrowFixedPrice, escrowFixedPrice } from "@/abi/EscrowFixedPrice";
 import { amoyEscrowMilestone, escrowMilestone } from "@/abi/EscrowMilestone";
+import { embeddedAbi, lightAccountAbi } from "@/abi/Embedded";
 
 interface ContractInput {
   functionName: string;
@@ -212,8 +213,13 @@ export interface EscrowResolveDisputeHourlyInput extends ContractInput {
 
 export type TransactionInput = EscrowDepositInput | EscrowWithdrawInput;
 
-export function parseInput(data: Hex, chainName: ChainNameEnum): TransactionInput {
+export interface DecodedInput {
+  callData: Hash;
+}
+
+export function parseInput(data: Hex, chainName: ChainNameEnum, isEmbedded: boolean = false): TransactionInput {
   let abi;
+  let inputFixPrice;
 
   switch (chainName) {
     case ChainNameEnum.Sepolia:
@@ -226,10 +232,29 @@ export function parseInput(data: Hex, chainName: ChainNameEnum): TransactionInpu
       throw new Error("Unsupported chainName");
   }
 
-  const inputFixPrice = decodeFunctionData({
-    abi: abi,
-    data,
-  });
+  if (isEmbedded) {
+    const handleOpsInput = decodeFunctionData({
+      abi: embeddedAbi,
+      data: data,
+    }) as { args: readonly DecodedInput[][] };
+
+    const handleOpsData = handleOpsInput.args[0]?.[0]?.["callData"];
+
+    const executeInput = decodeFunctionData({
+      abi: lightAccountAbi,
+      data: handleOpsData as Hash,
+    });
+
+    inputFixPrice = decodeFunctionData({
+      abi: abi,
+      data: executeInput.args[2] as Hash,
+    });
+  } else {
+    inputFixPrice = decodeFunctionData({
+      abi: abi,
+      data,
+    });
+  }
 
   switch (inputFixPrice.functionName) {
     case "deposit":
@@ -237,8 +262,8 @@ export function parseInput(data: Hex, chainName: ChainNameEnum): TransactionInpu
         functionName: "deposit",
         contractor: inputFixPrice.args[0].contractor,
         tokenAddress: inputFixPrice.args[0].paymentToken,
-        tokenSymbol: "USDT", // FIXME remove hardcode
-        amount: Number(formatUnits(inputFixPrice.args[0].amount, 6)), // FIXME remove hardcode
+        tokenSymbol: "MockUSDT",
+        amount: Number(formatUnits(inputFixPrice.args[0].amount, 6)),
         timeLock: 0n,
         feeConfig: inputFixPrice.args[0].feeConfig,
         recipientData: inputFixPrice.args[0].contractorData,
@@ -263,7 +288,7 @@ export function parseInput(data: Hex, chainName: ChainNameEnum): TransactionInpu
       return {
         functionName: "approve",
         depositId: inputFixPrice.args[0],
-        valueApprove: Number(formatUnits(inputFixPrice.args[1], 6)), // FIXME remove hardcode
+        valueApprove: Number(formatUnits(inputFixPrice.args[1], 6)),
         recipient: inputFixPrice.args[2],
       } as EscrowApproveInput;
     case "refill":
@@ -306,8 +331,13 @@ export function parseInput(data: Hex, chainName: ChainNameEnum): TransactionInpu
   }
 }
 
-export function parseMilestoneInput(data: Hex, chainName: ChainNameEnum): TransactionInput {
+export function parseMilestoneInput(
+  data: Hex,
+  chainName: ChainNameEnum,
+  isEmbedded: boolean = false
+): TransactionInput {
   let abi;
+  let inputMilestone;
 
   switch (chainName) {
     case ChainNameEnum.Sepolia:
@@ -320,10 +350,29 @@ export function parseMilestoneInput(data: Hex, chainName: ChainNameEnum): Transa
       throw new Error("Unsupported chainName");
   }
 
-  const inputMilestone = decodeFunctionData({
-    abi: abi,
-    data,
-  });
+  if (isEmbedded) {
+    const handleOpsInput = decodeFunctionData({
+      abi: embeddedAbi,
+      data: data,
+    }) as { args: readonly DecodedInput[][] };
+
+    const handleOpsData = handleOpsInput?.args[0]?.[0]?.callData;
+
+    const executeInput = decodeFunctionData({
+      abi: embeddedAbi,
+      data: handleOpsData as Hash,
+    });
+
+    inputMilestone = decodeFunctionData({
+      abi: abi,
+      data: executeInput.args[2] as `0x${string}`,
+    });
+  } else {
+    inputMilestone = decodeFunctionData({
+      abi: abi,
+      data,
+    });
+  }
 
   switch (inputMilestone.functionName) {
     case "deposit":
@@ -370,7 +419,7 @@ export function parseMilestoneInput(data: Hex, chainName: ChainNameEnum): Transa
         functionName: "approve",
         depositId: inputMilestone.args[0],
         escrowMilestoneId: inputMilestone.args[1],
-        valueApprove: Number(formatUnits(inputMilestone.args[2], 6)), // FIXME remove hardcode
+        valueApprove: Number(formatUnits(inputMilestone.args[2], 6)),
         recipient: inputMilestone.args[3],
       } as EscrowApproveMilestoneInput;
     case "refill":
@@ -418,8 +467,9 @@ export function parseMilestoneInput(data: Hex, chainName: ChainNameEnum): Transa
   }
 }
 
-export function parseHourlyInput(data: Hex, chainName: ChainNameEnum): TransactionInput {
+export function parseHourlyInput(data: Hex, chainName: ChainNameEnum, isEmbedded: boolean = false): TransactionInput {
   let abi;
+  let inputHourly;
 
   switch (chainName) {
     case ChainNameEnum.Sepolia:
@@ -431,10 +481,29 @@ export function parseHourlyInput(data: Hex, chainName: ChainNameEnum): Transacti
     default:
       throw new Error("Unsupported chainName");
   }
-  const inputHourly = decodeFunctionData({
-    abi: abi,
-    data,
-  });
+  if (isEmbedded) {
+    const handleOpsInput = decodeFunctionData({
+      abi: embeddedAbi,
+      data: data,
+    }) as { args: readonly DecodedInput[][] };
+
+    const handleOpsData = handleOpsInput?.args[0]?.[0]?.callData;
+
+    const executeInput = decodeFunctionData({
+      abi: embeddedAbi,
+      data: handleOpsData as Hash,
+    });
+
+    inputHourly = decodeFunctionData({
+      abi: abi,
+      data: executeInput.args[2] as `0x${string}`,
+    });
+  } else {
+    inputHourly = decodeFunctionData({
+      abi: abi,
+      data,
+    });
+  }
 
   switch (inputHourly.functionName) {
     case "deposit":
@@ -475,7 +544,7 @@ export function parseHourlyInput(data: Hex, chainName: ChainNameEnum): Transacti
         functionName: "adminApprove",
         depositId: inputHourly.args[0],
         escrowWeekId: inputHourly.args[1],
-        valueApprove: Number(formatUnits(inputHourly.args[2], 6)), // FIXME remove hardcode
+        valueApprove: Number(formatUnits(inputHourly.args[2], 6)),
         recipient: inputHourly.args[3],
         initializeNewWeek: inputHourly.args[4],
       } as EscrowApproveHourlyInput;

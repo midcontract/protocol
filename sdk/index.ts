@@ -1766,10 +1766,6 @@ export class MidcontractProtocol {
         data: data,
       }) as { args: readonly DecodedInput[][] };
 
-      if (!handleOpsInput || !handleOpsInput.args || !!handleOpsInput.args.length) {
-        throw new Error("asdas");
-      }
-
       const handleOpsData = handleOpsInput.args[0]?.[0]?.callData;
 
       const executeInput = decodeFunctionData({

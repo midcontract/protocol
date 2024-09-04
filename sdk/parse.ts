@@ -359,13 +359,13 @@ export function parseMilestoneInput(
     const handleOpsData = handleOpsInput?.args[0]?.[0]?.callData;
 
     const executeInput = decodeFunctionData({
-      abi: embeddedAbi,
+      abi: lightAccountAbi,
       data: handleOpsData as Hash,
     });
 
     inputMilestone = decodeFunctionData({
       abi: abi,
-      data: executeInput.args[2] as `0x${string}`,
+      data: executeInput.args[2] as Hash,
     });
   } else {
     inputMilestone = decodeFunctionData({
@@ -490,13 +490,13 @@ export function parseHourlyInput(data: Hex, chainName: ChainNameEnum, isEmbedded
     const handleOpsData = handleOpsInput?.args[0]?.[0]?.callData;
 
     const executeInput = decodeFunctionData({
-      abi: embeddedAbi,
+      abi: lightAccountAbi,
       data: handleOpsData as Hash,
     });
 
     inputHourly = decodeFunctionData({
       abi: abi,
-      data: executeInput.args[2] as `0x${string}`,
+      data: executeInput.args[2] as Hash,
     });
   } else {
     inputHourly = decodeFunctionData({

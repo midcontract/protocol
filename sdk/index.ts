@@ -1607,7 +1607,7 @@ export class MidcontractProtocol {
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);
 
     const embeddedAddress = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
-    if (transaction.to === embeddedAddress) {
+    if (transaction.to?.toLowerCase() === embeddedAddress.toLowerCase()) {
       isEmbedded = true;
     }
 
@@ -1631,7 +1631,7 @@ export class MidcontractProtocol {
     const receipt = await this.getTransactionReceipt(hash, waitReceipt);
 
     const embeddedAddress = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
-    if (transaction.to === embeddedAddress) {
+    if (transaction.to?.toLowerCase() === embeddedAddress.toLowerCase()) {
       isEmbedded = true;
     }
 

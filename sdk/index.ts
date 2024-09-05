@@ -1,32 +1,31 @@
 import {
-  type PublicClient,
-  type WalletClient,
-  type Chain,
-  type HttpTransport,
-  type Account,
-  type WriteContractParameters,
-  type Address,
-  type Hash,
-  type CustomTransport,
-  type EIP1193Provider,
-  type RpcLog,
-  type Log,
-  toHex,
-  type ParseEventLogsReturnType,
   type Abi,
-} from "viem";
-import {
-  createWalletClient,
-  http,
-  createPublicClient,
-  custom,
-  parseEventLogs,
-  decodeFunctionData,
+  type Account,
+  type Address,
+  type Chain,
   ContractFunctionExecutionError,
+  createPublicClient,
+  createWalletClient,
+  custom,
+  type CustomTransport,
+  decodeFunctionData,
+  type EIP1193Provider,
+  formatUnits,
+  type Hash,
+  http,
+  type HttpTransport,
+  type Log,
+  parseEventLogs,
+  type ParseEventLogsReturnType,
+  parseUnits,
+  type PublicClient,
+  type RpcLog,
+  toHex,
+  type WalletClient,
+  type WriteContractParameters,
 } from "viem";
-import { parseUnits, formatUnits } from "viem";
 import { erc20Abi } from "abitype/abis";
-import { sepolia, localhost, polygonAmoy } from "viem/chains";
+import { localhost, polygonAmoy, sepolia } from "viem/chains";
 import type { Transaction, TransactionReceipt } from "viem/types/transaction";
 import type { Hex } from "viem/types/misc";
 import {
@@ -828,7 +827,7 @@ export class MidcontractProtocol {
       };
     } catch (error) {
       if (error instanceof ContractFunctionExecutionError) {
-        throw new SimulateError(error.shortMessage);
+        throw new SimulateError(error.message);
       } else {
         throw new CoreMidcontractProtocolError(JSON.stringify(error));
       }
@@ -1838,6 +1837,13 @@ export class MidcontractProtocol {
   }
 
   private async send(input: WriteContractParameters): Promise<Hash> {
+    const gasPrice: bigint = await this.public.request({
+      method: "eth_gasPrice",
+    });
+
+    input.maxPriorityFeePerGas = (BigInt(gasPrice) * BigInt(120)) / BigInt(100);
+    input.maxFeePerGas = (BigInt(gasPrice) * BigInt(140)) / BigInt(100);
+
     return this.wallet.writeContract(input);
   }
 

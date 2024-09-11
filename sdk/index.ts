@@ -231,6 +231,11 @@ export class MidcontractProtocol {
       };
     }
     const transport = url ? http(url) : http();
+    if (url) {
+      chain.rpcUrls = {
+        default: { http: [url] },
+      } as const;
+    }
     return new MidcontractProtocol(chain, transport, contracts, abiList, account);
   }
 

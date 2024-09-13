@@ -72,27 +72,27 @@ export class FeeManager {
     };
   }
 
-  async getCoverageFee() {
+  async getCoverageFee(wallet: Hash) {
     const BPS = await this.getBPS();
     const result = await this.public.readContract({
       address: this.feeManagerEscrow,
       abi: this.abi,
       account: this.account,
-      args: [this.account.address],
-      functionName: "getClaimFee",
+      args: [wallet],
+      functionName: "getCoverageFee",
     });
     return {
       coverageFee: Number(result) / Number(BPS),
     };
   }
 
-  async getClaimFee() {
+  async getClaimFee(wallet: Hash) {
     const BPS = await this.getBPS();
     const result = await this.public.readContract({
       address: this.feeManagerEscrow,
       abi: this.abi,
       account: this.account,
-      args: [this.account.address],
+      args: [wallet],
       functionName: "getClaimFee",
     });
     return {

@@ -11,7 +11,6 @@ export const feeManagerAbi = [
   { inputs: [], name: "EscrowFeeManager__FeeTooHigh", type: "error" },
   { inputs: [], name: "EscrowFeeManager__UnsupportedFeeConfiguration", type: "error" },
   { inputs: [], name: "EscrowFeeManager__ZeroAddressProvided", type: "error" },
-  { inputs: [], name: "NewOwnerIsZeroAddress", type: "error" },
   { inputs: [], name: "Unauthorized", type: "error" },
   {
     anonymous: false,
@@ -25,7 +24,16 @@ export const feeManagerAbi = [
   {
     anonymous: false,
     inputs: [
-      { indexed: true, internalType: "address", name: "oldOwner", type: "address" },
+      { indexed: true, internalType: "address", name: "user", type: "address" },
+      { indexed: true, internalType: "address", name: "ownerCandidate", type: "address" },
+    ],
+    name: "OwnerUpdateInitiated",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "user", type: "address" },
       { indexed: true, internalType: "address", name: "newOwner", type: "address" },
     ],
     name: "OwnershipTransferred",
@@ -77,6 +85,7 @@ export const feeManagerAbi = [
     stateMutability: "view",
     type: "function",
   },
+  { inputs: [], name: "confirmOwner", outputs: [], stateMutability: "payable", type: "function" },
   {
     inputs: [],
     name: "defaultFees",
@@ -104,10 +113,11 @@ export const feeManagerAbi = [
   {
     inputs: [],
     name: "owner",
-    outputs: [{ internalType: "address", name: "result", type: "address" }],
+    outputs: [{ internalType: "address", name: "", type: "address" }],
     stateMutability: "view",
     type: "function",
   },
+  { inputs: [], name: "renounceOwner", outputs: [], stateMutability: "payable", type: "function" },
   {
     inputs: [
       { internalType: "address", name: "_user", type: "address" },
@@ -161,7 +171,6 @@ export const amoyFeeManagerAbi = [
   { inputs: [], name: "EscrowFeeManager__FeeTooHigh", type: "error" },
   { inputs: [], name: "EscrowFeeManager__UnsupportedFeeConfiguration", type: "error" },
   { inputs: [], name: "EscrowFeeManager__ZeroAddressProvided", type: "error" },
-  { inputs: [], name: "NewOwnerIsZeroAddress", type: "error" },
   { inputs: [], name: "Unauthorized", type: "error" },
   {
     anonymous: false,
@@ -175,7 +184,16 @@ export const amoyFeeManagerAbi = [
   {
     anonymous: false,
     inputs: [
-      { indexed: true, internalType: "address", name: "oldOwner", type: "address" },
+      { indexed: true, internalType: "address", name: "user", type: "address" },
+      { indexed: true, internalType: "address", name: "ownerCandidate", type: "address" },
+    ],
+    name: "OwnerUpdateInitiated",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "user", type: "address" },
       { indexed: true, internalType: "address", name: "newOwner", type: "address" },
     ],
     name: "OwnershipTransferred",
@@ -227,6 +245,7 @@ export const amoyFeeManagerAbi = [
     stateMutability: "view",
     type: "function",
   },
+  { inputs: [], name: "confirmOwner", outputs: [], stateMutability: "payable", type: "function" },
   {
     inputs: [],
     name: "defaultFees",
@@ -254,10 +273,11 @@ export const amoyFeeManagerAbi = [
   {
     inputs: [],
     name: "owner",
-    outputs: [{ internalType: "address", name: "result", type: "address" }],
+    outputs: [{ internalType: "address", name: "", type: "address" }],
     stateMutability: "view",
     type: "function",
   },
+  { inputs: [], name: "renounceOwner", outputs: [], stateMutability: "payable", type: "function" },
   {
     inputs: [
       { internalType: "address", name: "_user", type: "address" },

@@ -7,10 +7,10 @@ export const escrowFactoryAbi = [
     stateMutability: "nonpayable",
     type: "constructor",
   },
+  { inputs: [], name: "EnforcedPause", type: "error" },
+  { inputs: [], name: "ExpectedPause", type: "error" },
+  { inputs: [], name: "Factory__InvalidEscrowType", type: "error" },
   { inputs: [], name: "Factory__ZeroAddressProvided", type: "error" },
-  { inputs: [], name: "NewOwnerIsZeroAddress", type: "error" },
-  { inputs: [], name: "Pausable__NotPaused", type: "error" },
-  { inputs: [], name: "Pausable__Paused", type: "error" },
   { inputs: [], name: "Unauthorized", type: "error" },
   {
     anonymous: false,
@@ -25,7 +25,16 @@ export const escrowFactoryAbi = [
   {
     anonymous: false,
     inputs: [
-      { indexed: true, internalType: "address", name: "oldOwner", type: "address" },
+      { indexed: true, internalType: "address", name: "user", type: "address" },
+      { indexed: true, internalType: "address", name: "ownerCandidate", type: "address" },
+    ],
+    name: "OwnerUpdateInitiated",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "user", type: "address" },
       { indexed: true, internalType: "address", name: "newOwner", type: "address" },
     ],
     name: "OwnershipTransferred",
@@ -49,11 +58,12 @@ export const escrowFactoryAbi = [
     name: "Unpaused",
     type: "event",
   },
+  { inputs: [], name: "confirmOwner", outputs: [], stateMutability: "payable", type: "function" },
   {
     inputs: [
       { internalType: "enum Enums.EscrowType", name: "_escrowType", type: "uint8" },
       { internalType: "address", name: "_client", type: "address" },
-      { internalType: "address", name: "_owner", type: "address" },
+      { internalType: "address", name: "_adminManager", type: "address" },
       { internalType: "address", name: "_registry", type: "address" },
     ],
     name: "deployEscrow",
@@ -76,9 +86,16 @@ export const escrowFactoryAbi = [
     type: "function",
   },
   {
+    inputs: [{ internalType: "enum Enums.EscrowType", name: "_escrowType", type: "uint8" }],
+    name: "getEscrowImplementation",
+    outputs: [{ internalType: "address", name: "escrowImpl", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "owner",
-    outputs: [{ internalType: "address", name: "result", type: "address" }],
+    outputs: [{ internalType: "address", name: "", type: "address" }],
     stateMutability: "view",
     type: "function",
   },
@@ -93,10 +110,11 @@ export const escrowFactoryAbi = [
   {
     inputs: [],
     name: "registry",
-    outputs: [{ internalType: "contract IRegistry", name: "", type: "address" }],
+    outputs: [{ internalType: "contract IEscrowRegistry", name: "", type: "address" }],
     stateMutability: "view",
     type: "function",
   },
+  { inputs: [], name: "renounceOwner", outputs: [], stateMutability: "payable", type: "function" },
   {
     inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
     name: "transferOwnership",
@@ -123,10 +141,10 @@ export const amoyEscrowFactoryAbi = [
     stateMutability: "nonpayable",
     type: "constructor",
   },
+  { inputs: [], name: "EnforcedPause", type: "error" },
+  { inputs: [], name: "ExpectedPause", type: "error" },
+  { inputs: [], name: "Factory__InvalidEscrowType", type: "error" },
   { inputs: [], name: "Factory__ZeroAddressProvided", type: "error" },
-  { inputs: [], name: "NewOwnerIsZeroAddress", type: "error" },
-  { inputs: [], name: "Pausable__NotPaused", type: "error" },
-  { inputs: [], name: "Pausable__Paused", type: "error" },
   { inputs: [], name: "Unauthorized", type: "error" },
   {
     anonymous: false,
@@ -141,7 +159,16 @@ export const amoyEscrowFactoryAbi = [
   {
     anonymous: false,
     inputs: [
-      { indexed: true, internalType: "address", name: "oldOwner", type: "address" },
+      { indexed: true, internalType: "address", name: "user", type: "address" },
+      { indexed: true, internalType: "address", name: "ownerCandidate", type: "address" },
+    ],
+    name: "OwnerUpdateInitiated",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "user", type: "address" },
       { indexed: true, internalType: "address", name: "newOwner", type: "address" },
     ],
     name: "OwnershipTransferred",
@@ -165,11 +192,12 @@ export const amoyEscrowFactoryAbi = [
     name: "Unpaused",
     type: "event",
   },
+  { inputs: [], name: "confirmOwner", outputs: [], stateMutability: "payable", type: "function" },
   {
     inputs: [
       { internalType: "enum Enums.EscrowType", name: "_escrowType", type: "uint8" },
       { internalType: "address", name: "_client", type: "address" },
-      { internalType: "address", name: "_owner", type: "address" },
+      { internalType: "address", name: "_adminManager", type: "address" },
       { internalType: "address", name: "_registry", type: "address" },
     ],
     name: "deployEscrow",
@@ -192,9 +220,16 @@ export const amoyEscrowFactoryAbi = [
     type: "function",
   },
   {
+    inputs: [{ internalType: "enum Enums.EscrowType", name: "_escrowType", type: "uint8" }],
+    name: "getEscrowImplementation",
+    outputs: [{ internalType: "address", name: "escrowImpl", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "owner",
-    outputs: [{ internalType: "address", name: "result", type: "address" }],
+    outputs: [{ internalType: "address", name: "", type: "address" }],
     stateMutability: "view",
     type: "function",
   },
@@ -213,6 +248,7 @@ export const amoyEscrowFactoryAbi = [
     stateMutability: "view",
     type: "function",
   },
+  { inputs: [], name: "renounceOwner", outputs: [], stateMutability: "payable", type: "function" },
   {
     inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
     name: "transferOwnership",

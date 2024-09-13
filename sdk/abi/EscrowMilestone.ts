@@ -1,5 +1,6 @@
 export const escrowMilestone = [
   { inputs: [], name: "Escrow__AlreadyInitialized", type: "error" },
+  { inputs: [], name: "Escrow__BlacklistedAccount", type: "error" },
   { inputs: [], name: "Escrow__CreateDisputeNotAllowed", type: "error" },
   { inputs: [], name: "Escrow__DisputeNotActiveForThisDeposit", type: "error" },
   { inputs: [], name: "Escrow__FeeTooHigh", type: "error" },
@@ -7,6 +8,7 @@ export const escrowMilestone = [
   { inputs: [], name: "Escrow__InvalidContractId", type: "error" },
   { inputs: [], name: "Escrow__InvalidContractorDataHash", type: "error" },
   { inputs: [], name: "Escrow__InvalidFeeConfig", type: "error" },
+  { inputs: [], name: "Escrow__InvalidRange", type: "error" },
   { inputs: [], name: "Escrow__InvalidStatusForApprove", type: "error" },
   { inputs: [], name: "Escrow__InvalidStatusForSubmit", type: "error" },
   { inputs: [], name: "Escrow__InvalidStatusProvided", type: "error" },
@@ -20,6 +22,7 @@ export const escrowMilestone = [
   { inputs: [], name: "Escrow__NotEnoughDeposit", type: "error" },
   { inputs: [], name: "Escrow__NotSetFeeManager", type: "error" },
   { inputs: [], name: "Escrow__NotSupportedPaymentToken", type: "error" },
+  { inputs: [], name: "Escrow__OutOfRange", type: "error" },
   { inputs: [], name: "Escrow__ResolutionExceedsDepositedAmount", type: "error" },
   { inputs: [], name: "Escrow__ReturnNotAllowed", type: "error" },
   {
@@ -32,11 +35,16 @@ export const escrowMilestone = [
   { inputs: [], name: "Escrow__UnauthorizedToApproveReturn", type: "error" },
   { inputs: [], name: "Escrow__ZeroAddressProvided", type: "error" },
   { inputs: [], name: "Escrow__ZeroDepositAmount", type: "error" },
-  { inputs: [], name: "NewOwnerIsZeroAddress", type: "error" },
-  { inputs: [], name: "Unauthorized", type: "error" },
+  {
+    anonymous: false,
+    inputs: [{ indexed: false, internalType: "address", name: "adminManager", type: "address" }],
+    name: "AdminManagerUpdated",
+    type: "event",
+  },
   {
     anonymous: false,
     inputs: [
+      { indexed: true, internalType: "address", name: "approver", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "amountApprove", type: "uint256" },
@@ -48,11 +56,46 @@ export const escrowMilestone = [
   {
     anonymous: false,
     inputs: [
+      { indexed: true, internalType: "address", name: "contractor", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "startMilestoneId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "endMilestoneId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "totalClaimedAmount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "totalFeeAmount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "totalClientFee", type: "uint256" },
+    ],
+    name: "BulkClaimed",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "contractor", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "amount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
     ],
     name: "Claimed",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "previousOwner", type: "address" },
+      { indexed: true, internalType: "address", name: "newOwner", type: "address" },
+    ],
+    name: "ClientOwnershipTransferred",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
+      { indexed: false, internalType: "address", name: "previousOwner", type: "address" },
+      { indexed: true, internalType: "address", name: "newOwner", type: "address" },
+    ],
+    name: "ContractorOwnershipTransferred",
     type: "event",
   },
   {
@@ -71,9 +114,9 @@ export const escrowMilestone = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "milestoneId", type: "uint256" },
-      { indexed: false, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
     ],
     name: "DisputeCreated",
     type: "event",
@@ -81,8 +124,9 @@ export const escrowMilestone = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "milestoneId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "approver", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
       { indexed: false, internalType: "enum Enums.Winner", name: "winner", type: "uint8" },
       { indexed: false, internalType: "uint256", name: "clientAmount", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "contractorAmount", type: "uint256" },
@@ -93,18 +137,10 @@ export const escrowMilestone = [
   {
     anonymous: false,
     inputs: [
-      { indexed: true, internalType: "address", name: "oldOwner", type: "address" },
-      { indexed: true, internalType: "address", name: "newOwner", type: "address" },
-    ],
-    name: "OwnershipTransferred",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "amountAdditional", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "amountAdditional", type: "uint256" },
     ],
     name: "Refilled",
     type: "event",
@@ -118,9 +154,9 @@ export const escrowMilestone = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "milestoneId", type: "uint256" },
-      { indexed: false, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "address", name: "approver", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
     ],
     name: "ReturnApproved",
     type: "event",
@@ -128,8 +164,9 @@ export const escrowMilestone = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "milestoneId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
     ],
     name: "ReturnCanceled",
     type: "event",
@@ -137,8 +174,9 @@ export const escrowMilestone = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "milestoneId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
     ],
     name: "ReturnRequested",
     type: "event",
@@ -156,12 +194,20 @@ export const escrowMilestone = [
   {
     anonymous: false,
     inputs: [
+      { indexed: true, internalType: "address", name: "withdrawer", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
     ],
     name: "Withdrawn",
     type: "event",
+  },
+  {
+    inputs: [],
+    name: "adminManager",
+    outputs: [{ internalType: "contract IEscrowAdminManager", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
   },
   {
     inputs: [
@@ -207,7 +253,11 @@ export const escrowMilestone = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "uint256", name: "_contractId", type: "uint256" }],
+    inputs: [
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
+      { internalType: "uint256", name: "_startMilestoneId", type: "uint256" },
+      { internalType: "uint256", name: "_endMilestoneId", type: "uint256" },
+    ],
     name: "claimAll",
     outputs: [],
     stateMutability: "nonpayable",
@@ -299,7 +349,7 @@ export const escrowMilestone = [
   {
     inputs: [
       { internalType: "address", name: "_client", type: "address" },
-      { internalType: "address", name: "_owner", type: "address" },
+      { internalType: "address", name: "_adminManager", type: "address" },
       { internalType: "address", name: "_registry", type: "address" },
     ],
     name: "initialize",
@@ -335,13 +385,6 @@ export const escrowMilestone = [
       { internalType: "uint256", name: "depositAmount", type: "uint256" },
       { internalType: "enum Enums.Winner", name: "winner", type: "uint8" },
     ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "owner",
-    outputs: [{ internalType: "address", name: "result", type: "address" }],
     stateMutability: "view",
     type: "function",
   },
@@ -399,10 +442,28 @@ export const escrowMilestone = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
-    name: "transferOwnership",
+    inputs: [{ internalType: "address", name: "_newAccount", type: "address" }],
+    name: "transferClientOwnership",
     outputs: [],
-    stateMutability: "payable",
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
+      { internalType: "uint256", name: "_milestoneId", type: "uint256" },
+      { internalType: "address", name: "_newAccount", type: "address" },
+    ],
+    name: "transferContractorOwnership",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "_adminManager", type: "address" }],
+    name: "updateAdminManager",
+    outputs: [],
+    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -426,6 +487,7 @@ export const escrowMilestone = [
 
 export const amoyEscrowMilestone = [
   { inputs: [], name: "Escrow__AlreadyInitialized", type: "error" },
+  { inputs: [], name: "Escrow__BlacklistedAccount", type: "error" },
   { inputs: [], name: "Escrow__CreateDisputeNotAllowed", type: "error" },
   { inputs: [], name: "Escrow__DisputeNotActiveForThisDeposit", type: "error" },
   { inputs: [], name: "Escrow__FeeTooHigh", type: "error" },
@@ -433,6 +495,7 @@ export const amoyEscrowMilestone = [
   { inputs: [], name: "Escrow__InvalidContractId", type: "error" },
   { inputs: [], name: "Escrow__InvalidContractorDataHash", type: "error" },
   { inputs: [], name: "Escrow__InvalidFeeConfig", type: "error" },
+  { inputs: [], name: "Escrow__InvalidRange", type: "error" },
   { inputs: [], name: "Escrow__InvalidStatusForApprove", type: "error" },
   { inputs: [], name: "Escrow__InvalidStatusForSubmit", type: "error" },
   { inputs: [], name: "Escrow__InvalidStatusProvided", type: "error" },
@@ -446,6 +509,7 @@ export const amoyEscrowMilestone = [
   { inputs: [], name: "Escrow__NotEnoughDeposit", type: "error" },
   { inputs: [], name: "Escrow__NotSetFeeManager", type: "error" },
   { inputs: [], name: "Escrow__NotSupportedPaymentToken", type: "error" },
+  { inputs: [], name: "Escrow__OutOfRange", type: "error" },
   { inputs: [], name: "Escrow__ResolutionExceedsDepositedAmount", type: "error" },
   { inputs: [], name: "Escrow__ReturnNotAllowed", type: "error" },
   {
@@ -458,11 +522,16 @@ export const amoyEscrowMilestone = [
   { inputs: [], name: "Escrow__UnauthorizedToApproveReturn", type: "error" },
   { inputs: [], name: "Escrow__ZeroAddressProvided", type: "error" },
   { inputs: [], name: "Escrow__ZeroDepositAmount", type: "error" },
-  { inputs: [], name: "NewOwnerIsZeroAddress", type: "error" },
-  { inputs: [], name: "Unauthorized", type: "error" },
+  {
+    anonymous: false,
+    inputs: [{ indexed: false, internalType: "address", name: "adminManager", type: "address" }],
+    name: "AdminManagerUpdated",
+    type: "event",
+  },
   {
     anonymous: false,
     inputs: [
+      { indexed: true, internalType: "address", name: "approver", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "amountApprove", type: "uint256" },
@@ -474,11 +543,46 @@ export const amoyEscrowMilestone = [
   {
     anonymous: false,
     inputs: [
+      { indexed: true, internalType: "address", name: "contractor", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "startMilestoneId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "endMilestoneId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "totalClaimedAmount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "totalFeeAmount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "totalClientFee", type: "uint256" },
+    ],
+    name: "BulkClaimed",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "contractor", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "amount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
     ],
     name: "Claimed",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "previousOwner", type: "address" },
+      { indexed: true, internalType: "address", name: "newOwner", type: "address" },
+    ],
+    name: "ClientOwnershipTransferred",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
+      { indexed: false, internalType: "address", name: "previousOwner", type: "address" },
+      { indexed: true, internalType: "address", name: "newOwner", type: "address" },
+    ],
+    name: "ContractorOwnershipTransferred",
     type: "event",
   },
   {
@@ -497,9 +601,9 @@ export const amoyEscrowMilestone = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "milestoneId", type: "uint256" },
-      { indexed: false, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
     ],
     name: "DisputeCreated",
     type: "event",
@@ -507,8 +611,9 @@ export const amoyEscrowMilestone = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "milestoneId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "approver", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
       { indexed: false, internalType: "enum Enums.Winner", name: "winner", type: "uint8" },
       { indexed: false, internalType: "uint256", name: "clientAmount", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "contractorAmount", type: "uint256" },
@@ -519,18 +624,10 @@ export const amoyEscrowMilestone = [
   {
     anonymous: false,
     inputs: [
-      { indexed: true, internalType: "address", name: "oldOwner", type: "address" },
-      { indexed: true, internalType: "address", name: "newOwner", type: "address" },
-    ],
-    name: "OwnershipTransferred",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "amountAdditional", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "amountAdditional", type: "uint256" },
     ],
     name: "Refilled",
     type: "event",
@@ -544,9 +641,9 @@ export const amoyEscrowMilestone = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "milestoneId", type: "uint256" },
-      { indexed: false, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "address", name: "approver", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
     ],
     name: "ReturnApproved",
     type: "event",
@@ -554,8 +651,9 @@ export const amoyEscrowMilestone = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "milestoneId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
     ],
     name: "ReturnCanceled",
     type: "event",
@@ -563,8 +661,9 @@ export const amoyEscrowMilestone = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "milestoneId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
     ],
     name: "ReturnRequested",
     type: "event",
@@ -582,12 +681,20 @@ export const amoyEscrowMilestone = [
   {
     anonymous: false,
     inputs: [
+      { indexed: true, internalType: "address", name: "withdrawer", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
     ],
     name: "Withdrawn",
     type: "event",
+  },
+  {
+    inputs: [],
+    name: "adminManager",
+    outputs: [{ internalType: "contract IEscrowAdminManager", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
   },
   {
     inputs: [
@@ -633,7 +740,11 @@ export const amoyEscrowMilestone = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "uint256", name: "_contractId", type: "uint256" }],
+    inputs: [
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
+      { internalType: "uint256", name: "_startMilestoneId", type: "uint256" },
+      { internalType: "uint256", name: "_endMilestoneId", type: "uint256" },
+    ],
     name: "claimAll",
     outputs: [],
     stateMutability: "nonpayable",
@@ -725,7 +836,7 @@ export const amoyEscrowMilestone = [
   {
     inputs: [
       { internalType: "address", name: "_client", type: "address" },
-      { internalType: "address", name: "_owner", type: "address" },
+      { internalType: "address", name: "_adminManager", type: "address" },
       { internalType: "address", name: "_registry", type: "address" },
     ],
     name: "initialize",
@@ -761,13 +872,6 @@ export const amoyEscrowMilestone = [
       { internalType: "uint256", name: "depositAmount", type: "uint256" },
       { internalType: "enum Enums.Winner", name: "winner", type: "uint8" },
     ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "owner",
-    outputs: [{ internalType: "address", name: "result", type: "address" }],
     stateMutability: "view",
     type: "function",
   },
@@ -825,10 +929,28 @@ export const amoyEscrowMilestone = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
-    name: "transferOwnership",
+    inputs: [{ internalType: "address", name: "_newAccount", type: "address" }],
+    name: "transferClientOwnership",
     outputs: [],
-    stateMutability: "payable",
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
+      { internalType: "uint256", name: "_milestoneId", type: "uint256" },
+      { internalType: "address", name: "_newAccount", type: "address" },
+    ],
+    name: "transferContractorOwnership",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "_adminManager", type: "address" }],
+    name: "updateAdminManager",
+    outputs: [],
+    stateMutability: "nonpayable",
     type: "function",
   },
   {

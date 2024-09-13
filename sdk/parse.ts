@@ -66,6 +66,8 @@ export interface EscrowClaimInput extends ContractInput {
 export interface EscrowClaimMilestoneInput extends ContractInput {
   depositId: bigint;
   escrowMilestoneId: bigint;
+  startMilestoneId: bigint;
+  endMilestoneId: bigint;
 }
 
 export interface EscrowClaimHourlyInput extends ContractInput {
@@ -406,6 +408,8 @@ export function parseMilestoneInput(
       return {
         functionName: "claimAll",
         depositId: inputMilestone.args[0],
+        startMilestoneId: inputMilestone.args[1],
+        endMilestoneId: inputMilestone.args[2],
       } as EscrowClaimMilestoneInput;
     case "submit":
       return {

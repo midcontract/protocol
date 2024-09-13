@@ -37,13 +37,18 @@ export const escrowHourly = [
   { inputs: [], name: "Escrow__UnauthorizedToApproveReturn", type: "error" },
   { inputs: [], name: "Escrow__ZeroAddressProvided", type: "error" },
   { inputs: [], name: "Escrow__ZeroDepositAmount", type: "error" },
-  { inputs: [], name: "NewOwnerIsZeroAddress", type: "error" },
-  { inputs: [], name: "Unauthorized", type: "error" },
+  {
+    anonymous: false,
+    inputs: [{ indexed: false, internalType: "address", name: "adminManager", type: "address" }],
+    name: "AdminManagerUpdated",
+    type: "event",
+  },
   {
     anonymous: false,
     inputs: [
+      { indexed: true, internalType: "address", name: "approver", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "weekId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "amountApprove", type: "uint256" },
       { indexed: false, internalType: "address", name: "receiver", type: "address" },
     ],
@@ -54,7 +59,7 @@ export const escrowHourly = [
     anonymous: false,
     inputs: [
       { indexed: true, internalType: "address", name: "contractor", type: "address" },
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "startWeekId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "endWeekId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "totalClaimedAmount", type: "uint256" },
@@ -67,9 +72,10 @@ export const escrowHourly = [
   {
     anonymous: false,
     inputs: [
+      { indexed: true, internalType: "address", name: "contractor", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "weekId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "amount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
     ],
     name: "Claimed",
     type: "event",
@@ -86,7 +92,7 @@ export const escrowHourly = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: true, internalType: "address", name: "previousOwner", type: "address" },
       { indexed: true, internalType: "address", name: "newOwner", type: "address" },
     ],
@@ -108,9 +114,9 @@ export const escrowHourly = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
-      { indexed: false, internalType: "address", name: "sender", type: "address" },
     ],
     name: "DisputeCreated",
     type: "event",
@@ -118,7 +124,8 @@ export const escrowHourly = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "approver", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
       { indexed: false, internalType: "enum Enums.Winner", name: "winner", type: "uint8" },
       { indexed: false, internalType: "uint256", name: "clientAmount", type: "uint256" },
@@ -130,15 +137,7 @@ export const escrowHourly = [
   {
     anonymous: false,
     inputs: [
-      { indexed: true, internalType: "address", name: "oldOwner", type: "address" },
-      { indexed: true, internalType: "address", name: "newOwner", type: "address" },
-    ],
-    name: "OwnershipTransferred",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
     ],
@@ -148,8 +147,9 @@ export const escrowHourly = [
   {
     anonymous: false,
     inputs: [
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "weekId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
     ],
     name: "RefilledWeekPayment",
@@ -164,9 +164,9 @@ export const escrowHourly = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "approver", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
-      { indexed: false, internalType: "address", name: "sender", type: "address" },
     ],
     name: "ReturnApproved",
     type: "event",
@@ -174,7 +174,8 @@ export const escrowHourly = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
     ],
     name: "ReturnCanceled",
@@ -183,7 +184,8 @@ export const escrowHourly = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
     ],
     name: "ReturnRequested",
@@ -192,8 +194,9 @@ export const escrowHourly = [
   {
     anonymous: false,
     inputs: [
+      { indexed: true, internalType: "address", name: "withdrawer", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "weekId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
     ],
     name: "Withdrawn",
@@ -210,6 +213,13 @@ export const escrowHourly = [
     name: "adminApprove",
     outputs: [],
     stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "adminManager",
+    outputs: [{ internalType: "contract IEscrowAdminManager", name: "", type: "address" }],
+    stateMutability: "view",
     type: "function",
   },
   {
@@ -348,7 +358,7 @@ export const escrowHourly = [
   {
     inputs: [
       { internalType: "address", name: "_client", type: "address" },
-      { internalType: "address", name: "_owner", type: "address" },
+      { internalType: "address", name: "_adminManager", type: "address" },
       { internalType: "address", name: "_registry", type: "address" },
     ],
     name: "initialize",
@@ -370,13 +380,6 @@ export const escrowHourly = [
     ],
     name: "isValidSignature",
     outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "owner",
-    outputs: [{ internalType: "address", name: "result", type: "address" }],
     stateMutability: "view",
     type: "function",
   },
@@ -440,10 +443,10 @@ export const escrowHourly = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
-    name: "transferOwnership",
+    inputs: [{ internalType: "address", name: "_adminManager", type: "address" }],
+    name: "updateAdminManager",
     outputs: [],
-    stateMutability: "payable",
+    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -504,13 +507,18 @@ export const amoyEscrowHourly = [
   { inputs: [], name: "Escrow__UnauthorizedToApproveReturn", type: "error" },
   { inputs: [], name: "Escrow__ZeroAddressProvided", type: "error" },
   { inputs: [], name: "Escrow__ZeroDepositAmount", type: "error" },
-  { inputs: [], name: "NewOwnerIsZeroAddress", type: "error" },
-  { inputs: [], name: "Unauthorized", type: "error" },
+  {
+    anonymous: false,
+    inputs: [{ indexed: false, internalType: "address", name: "adminManager", type: "address" }],
+    name: "AdminManagerUpdated",
+    type: "event",
+  },
   {
     anonymous: false,
     inputs: [
+      { indexed: true, internalType: "address", name: "approver", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "weekId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "amountApprove", type: "uint256" },
       { indexed: false, internalType: "address", name: "receiver", type: "address" },
     ],
@@ -521,7 +529,7 @@ export const amoyEscrowHourly = [
     anonymous: false,
     inputs: [
       { indexed: true, internalType: "address", name: "contractor", type: "address" },
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "startWeekId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "endWeekId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "totalClaimedAmount", type: "uint256" },
@@ -534,9 +542,10 @@ export const amoyEscrowHourly = [
   {
     anonymous: false,
     inputs: [
+      { indexed: true, internalType: "address", name: "contractor", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "weekId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "amount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
     ],
     name: "Claimed",
     type: "event",
@@ -553,7 +562,7 @@ export const amoyEscrowHourly = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: true, internalType: "address", name: "previousOwner", type: "address" },
       { indexed: true, internalType: "address", name: "newOwner", type: "address" },
     ],
@@ -575,9 +584,9 @@ export const amoyEscrowHourly = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
-      { indexed: false, internalType: "address", name: "sender", type: "address" },
     ],
     name: "DisputeCreated",
     type: "event",
@@ -585,7 +594,8 @@ export const amoyEscrowHourly = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "approver", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
       { indexed: false, internalType: "enum Enums.Winner", name: "winner", type: "uint8" },
       { indexed: false, internalType: "uint256", name: "clientAmount", type: "uint256" },
@@ -597,15 +607,7 @@ export const amoyEscrowHourly = [
   {
     anonymous: false,
     inputs: [
-      { indexed: true, internalType: "address", name: "oldOwner", type: "address" },
-      { indexed: true, internalType: "address", name: "newOwner", type: "address" },
-    ],
-    name: "OwnershipTransferred",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
     ],
@@ -615,8 +617,9 @@ export const amoyEscrowHourly = [
   {
     anonymous: false,
     inputs: [
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "weekId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
     ],
     name: "RefilledWeekPayment",
@@ -631,9 +634,9 @@ export const amoyEscrowHourly = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "approver", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
-      { indexed: false, internalType: "address", name: "sender", type: "address" },
     ],
     name: "ReturnApproved",
     type: "event",
@@ -641,7 +644,8 @@ export const amoyEscrowHourly = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
     ],
     name: "ReturnCanceled",
@@ -650,7 +654,8 @@ export const amoyEscrowHourly = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
     ],
     name: "ReturnRequested",
@@ -659,8 +664,9 @@ export const amoyEscrowHourly = [
   {
     anonymous: false,
     inputs: [
+      { indexed: true, internalType: "address", name: "withdrawer", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "weekId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "weekId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
     ],
     name: "Withdrawn",
@@ -677,6 +683,13 @@ export const amoyEscrowHourly = [
     name: "adminApprove",
     outputs: [],
     stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "adminManager",
+    outputs: [{ internalType: "contract IEscrowAdminManager", name: "", type: "address" }],
+    stateMutability: "view",
     type: "function",
   },
   {
@@ -815,7 +828,7 @@ export const amoyEscrowHourly = [
   {
     inputs: [
       { internalType: "address", name: "_client", type: "address" },
-      { internalType: "address", name: "_owner", type: "address" },
+      { internalType: "address", name: "_adminManager", type: "address" },
       { internalType: "address", name: "_registry", type: "address" },
     ],
     name: "initialize",
@@ -837,13 +850,6 @@ export const amoyEscrowHourly = [
     ],
     name: "isValidSignature",
     outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "owner",
-    outputs: [{ internalType: "address", name: "result", type: "address" }],
     stateMutability: "view",
     type: "function",
   },
@@ -907,10 +913,10 @@ export const amoyEscrowHourly = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
-    name: "transferOwnership",
+    inputs: [{ internalType: "address", name: "_adminManager", type: "address" }],
+    name: "updateAdminManager",
     outputs: [],
-    stateMutability: "payable",
+    stateMutability: "nonpayable",
     type: "function",
   },
   {

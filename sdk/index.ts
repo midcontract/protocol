@@ -10,6 +10,7 @@ import {
   type CustomTransport,
   decodeFunctionData,
   type EIP1193Provider,
+  encodeFunctionData,
   formatUnits,
   type Hash,
   http,
@@ -156,7 +157,7 @@ export class MidcontractProtocol {
   private readonly factoryEscrow: Address;
   private readonly registryEscrow: Address;
   private readonly feeManagerEscrow: Address;
-  private readonly ownerAddress: Address;
+  private readonly managerAddress: Address;
   public fixedPriceAbi: [];
   public milestoneAbi: [];
   public hourlyAbi: [];
@@ -180,7 +181,7 @@ export class MidcontractProtocol {
     this.factoryEscrow = contractList.escrow["FACTORY"] as Address;
     this.registryEscrow = contractList.escrow["REGISTRY"] as Address;
     this.feeManagerEscrow = contractList.escrow["FEE_MANAGER"] as Address;
-    this.ownerAddress = contractList.escrow["ADMIN"] as Address;
+    this.managerAddress = contractList.escrow["ADMIN_MANAGER"] as Address;
     this.fixedPriceAbi = abiList.fixedPriceAbi as [];
     this.milestoneAbi = abiList.milestoneAbi as [];
     this.hourlyAbi = abiList.hourlyAbi as [];
@@ -338,7 +339,7 @@ export class MidcontractProtocol {
     };
   }
 
-  async getCoverageFee(): Promise<number> {
+  async getCoverageFee(wallet: Hash): Promise<number> {
     const feeManager = new FeeManager(
       this.wallet,
       this.public,
@@ -346,12 +347,12 @@ export class MidcontractProtocol {
       this.feeManagerEscrow,
       this.feeManagerAbi
     );
-    const { coverageFee } = await feeManager.getCoverageFee();
+    const { coverageFee } = await feeManager.getCoverageFee(wallet);
 
     return Number(coverageFee);
   }
 
-  async getClaimFee(): Promise<number> {
+  async getClaimFee(wallet: Hash): Promise<number> {
     const feeManager = new FeeManager(
       this.wallet,
       this.public,
@@ -359,7 +360,7 @@ export class MidcontractProtocol {
       this.feeManagerEscrow,
       this.feeManagerAbi
     );
-    const { claimFee } = await feeManager.getClaimFee();
+    const { claimFee } = await feeManager.getClaimFee(wallet);
 
     return Number(claimFee);
   }
@@ -875,7 +876,7 @@ export class MidcontractProtocol {
       throw new NotSetError("valueAdditional");
     }
 
-    const deposit = await this.getDepositList(contractId);
+    const deposit = await this.getDepositListMilestone(contractId, milestoneId);
     const token = this.dataToken(deposit.paymentToken);
     const account = this.account;
     const { totalDepositAmount } = await this.escrowDepositAmount(value, deposit.feeConfig);
@@ -1098,12 +1099,17 @@ export class MidcontractProtocol {
     };
   }
 
-  async escrowClaimAllMilestone(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
+  async escrowClaimAllMilestone(
+    contractId: bigint,
+    startMilestoneId: bigint,
+    endMilestoneId: bigint,
+    waitReceipt = true
+  ): Promise<TransactionId> {
     const { request } = await this.public.simulateContract({
       address: this.escrow,
       abi: this.milestoneAbi,
       account: this.account,
-      args: [contractId],
+      args: [contractId, startMilestoneId, endMilestoneId],
       functionName: "claimAll",
     });
     const hash = await this.send(request);
@@ -1502,7 +1508,7 @@ export class MidcontractProtocol {
       address: this.factoryEscrow,
       abi: this.factoryAbi,
       account: this.account,
-      args: [EscrowType.FixedPrice, this.account.address, this.ownerAddress, this.registryEscrow],
+      args: [EscrowType.FixedPrice, this.account.address, this.managerAddress, this.registryEscrow],
       functionName: "deployEscrow",
     });
     const hash = await this.send(data.request);
@@ -1522,7 +1528,7 @@ export class MidcontractProtocol {
       address: this.factoryEscrow,
       abi: this.factoryAbi,
       account: this.account,
-      args: [EscrowType.Milestone, this.account.address, this.ownerAddress, this.registryEscrow],
+      args: [EscrowType.Milestone, this.account.address, this.managerAddress, this.registryEscrow],
       functionName: "deployEscrow",
     });
     const hash = await this.send(data.request);
@@ -1542,7 +1548,7 @@ export class MidcontractProtocol {
       address: this.factoryEscrow,
       abi: this.factoryAbi,
       account: this.account,
-      args: [EscrowType.Hourly, this.account.address, this.ownerAddress, this.registryEscrow],
+      args: [EscrowType.Hourly, this.account.address, this.managerAddress, this.registryEscrow],
       functionName: "deployEscrow",
     });
     const hash = await this.send(data.request);
@@ -1842,12 +1848,33 @@ export class MidcontractProtocol {
   }
 
   private async send(input: WriteContractParameters): Promise<Hash> {
-    const gasPrice: bigint = await this.public.request({
-      method: "eth_gasPrice",
+    const inputData = (input.args as unknown[]).map(arg => {
+      return typeof arg === "number" ? BigInt(arg) : arg;
+    }) as never;
+
+    const encodedData = encodeFunctionData({ abi: input.abi, functionName: input.functionName, args: inputData });
+
+    const tx = {
+      from: this.account.address,
+      to: input.address,
+      data: encodedData,
+    };
+
+    const estimatedGasLimit: bigint = await this.public.request({
+      method: "eth_estimateGas",
+      params: [tx],
     });
 
-    input.maxPriorityFeePerGas = (BigInt(gasPrice) * BigInt(120)) / BigInt(100);
-    input.maxFeePerGas = (BigInt(gasPrice) * BigInt(140)) / BigInt(100);
+    input.gas = BigInt(estimatedGasLimit) + (BigInt(estimatedGasLimit) * BigInt(30)) / BigInt(100);
+    input.maxPriorityFeePerGas = BigInt(2_000_000_000);
+    input.maxFeePerGas = BigInt(45_000_000_000);
+
+    // const gasPrice: bigint = await this.public.request({
+    //   method: "eth_gasPrice",
+    // });
+    //
+    // input.maxPriorityFeePerGas = (BigInt(gasPrice) * BigInt(120)) / BigInt(100);
+    // input.maxFeePerGas = (BigInt(gasPrice) * BigInt(140)) / BigInt(100);
 
     return this.wallet.writeContract(input);
   }

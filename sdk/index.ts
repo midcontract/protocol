@@ -1714,7 +1714,7 @@ export class MidcontractProtocol {
       isEmbedded = true;
     }
 
-    if (BigInt(transaction.to || "0") != BigInt(this.escrow)) {
+    if (!isEmbedded && BigInt(transaction.to || "0") != BigInt(this.escrow)) {
       throw new NotSupportError(`contract ${transaction.to} ${this.escrow}`);
     }
     const input = await this.parseInputHourly(transaction.input, isEmbedded);

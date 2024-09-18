@@ -1776,7 +1776,7 @@ export class MidcontractProtocol {
         data: data,
       }) as { args: readonly DecodedInput[][] };
 
-      const handleOpsData = handleOpsInput.args[0]?.[0]?.callData;
+      const handleOpsData = handleOpsInput.args[0]?.[handleOpsInput?.args[0].length - 1]?.callData;
 
       const executeInput = decodeFunctionData({
         abi: lightAccountAbi,
@@ -1802,7 +1802,7 @@ export class MidcontractProtocol {
         data: data,
       }) as { args: readonly DecodedInput[][] };
 
-      const handleOpsData = handleOpsInput?.args[0]?.[0]?.callData;
+      const handleOpsData = handleOpsInput?.args[0]?.[handleOpsInput?.args[0].length - 1]?.callData;
 
       const executeInput = decodeFunctionData({
         abi: lightAccountAbi,
@@ -1828,7 +1828,7 @@ export class MidcontractProtocol {
         data: data,
       }) as { args: readonly DecodedInput[][] };
 
-      const handleOpsData = handleOpsInput?.args[0]?.[0]?.callData;
+      const handleOpsData = handleOpsInput?.args[0]?.[handleOpsInput?.args[0].length - 1]?.callData;
 
       const executeInput = decodeFunctionData({
         abi: lightAccountAbi,

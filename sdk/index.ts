@@ -1828,7 +1828,9 @@ export class MidcontractProtocol {
         data: data,
       }) as { args: readonly DecodedInput[][] };
 
-      const handleOpsData = handleOpsInput?.args[0]?.[handleOpsInput?.args[0].length - 1]?.callData;
+      handleOpsInput?.args[0]?.sort((a, b) => Number(a.nonce) - Number(b.nonce));
+
+      const handleOpsData = handleOpsInput?.args[0]?.[0]?.callData;
 
       const executeInput = decodeFunctionData({
         abi: lightAccountAbi,

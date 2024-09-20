@@ -217,6 +217,7 @@ export type TransactionInput = EscrowDepositInput | EscrowWithdrawInput;
 
 export interface DecodedInput {
   callData: Hash;
+  nonce: bigint;
 }
 
 export function parseInput(data: Hex, chainName: ChainNameEnum, isEmbedded: boolean = false): TransactionInput {
@@ -491,11 +492,11 @@ export function parseHourlyInput(data: Hex, chainName: ChainNameEnum, isEmbedded
       data: data,
     }) as { args: readonly DecodedInput[][] };
 
-    const handleOpsData = handleOpsInput?.args[0]?.[handleOpsInput?.args[0].length - 1]?.callData;
+    handleOpsInput?.args[0]?.sort((a, b) => Number(a.nonce) - Number(b.nonce));
 
     const executeInput = decodeFunctionData({
       abi: lightAccountAbi,
-      data: handleOpsData as Hash,
+      data: handleOpsInput?.args[0]?.[0]?.callData as Hash,
     });
 
     inputHourly = decodeFunctionData({

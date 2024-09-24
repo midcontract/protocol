@@ -1868,8 +1868,8 @@ export class MidcontractProtocol {
     });
 
     input.gas = BigInt(estimatedGasLimit) + (BigInt(estimatedGasLimit) * BigInt(30)) / BigInt(100);
-    input.maxPriorityFeePerGas = BigInt(2_000_000_000);
-    input.maxFeePerGas = BigInt(45_000_000_000);
+    input.maxPriorityFeePerGas = BigInt(10_000_000_000);
+    input.maxFeePerGas = BigInt(90_000_000_000);
 
     // const gasPrice: bigint = await this.public.request({
     //   method: "eth_gasPrice",

@@ -54,13 +54,6 @@ describe("deployContract", async () => {
   }, 1200000);
 });
 
-it("parse transaction", async () => {
-  const res = await mp.transactionByHashMilestoneWait(
-    "0xcffba5a0ae278766b4857b632ce7803611f990bb2d5b7e8a70f6c5ca13453b94"
-  );
-  expect(res);
-}, 1200000);
-
 describe("getCurrentContractId", async () => {
   it("getCurrentContractId", async () => {
     mp.changeAccount(alice);
@@ -891,6 +884,54 @@ describe("base", async () => {
       expect(await mp.tokenBalance(bob.address)).toBeLessThan(bobBalance + amount * 3);
     }, 1200000);
 
+    it("success flow - auto approve work", async () => {
+      const amount = 1;
+      const amountToClaim = 0;
+      const { data, salt, recipientData, aliceBalance } = await newData();
+      const tokenSymbol = "MockUSDT";
+
+      // new deposit for milestone1
+      const depositInput = [
+        {
+          contractorAddress: bob.address as Address,
+          token: tokenSymbol,
+          amount,
+          amountToClaim,
+          recipientData: recipientData,
+          feeConfig: FeeConfig.CLIENT_COVERS_ONLY,
+        },
+      ];
+      const milestone1 = await mp.escrowMilestoneDeposit(depositInput, tokenSymbol);
+      expect(milestone1.status).toEqual("success");
+      expect(milestone1.contractId).toBeDefined();
+
+      const contractId = milestone1.contractId;
+      const milestone1Id = 0n;
+      expect((await mp.getDepositListMilestone(contractId, milestone1Id)).amount).toEqual(amount);
+      expect(await mp.tokenBalance(alice.address)).toBeLessThan(aliceBalance - amount);
+
+      // submit freelancer
+      mp.changeAccount(bob);
+      const escrowSubmitStatus = await mp.escrowSubmitMilestone(contractId, milestone1Id, salt, data);
+      expect(escrowSubmitStatus.status).toEqual("success");
+
+      // auto approve and claim milestone1
+      mp.changeAccount(admin);
+      const milestone1AutoApprove = await mp.escrowApproveMilestone({
+        contractId,
+        milestoneId: milestone1Id,
+        valueApprove: amount,
+        recipient: bob.address,
+        token: tokenSymbol,
+      });
+      expect(milestone1AutoApprove.status).toEqual("success");
+      expect((await mp.getDepositListMilestone(contractId, milestone1Id)).amountToClaim).toEqual(amount);
+
+      mp.changeAccount(bob);
+      const milestone1Claim = await mp.escrowClaimMilestone(contractId, milestone1Id);
+      expect(milestone1Claim.status).toEqual("success");
+    }, 1200000);
+
     it("success flow create and cancel return request", async () => {
       const amount = 10;
       const amountToClaim = 0;
@@ -1121,6 +1162,17 @@ describe("base", async () => {
       mp.changeAccount(alice);
       const withdrawResponse = await mp.escrowWithdrawMilestone(contractId, milestone1Id);
       expect(withdrawResponse.status).toEqual("success");
+
+      const transactionData = await mp.transactionByHashMilestone(withdrawResponse.id);
+      expect(transactionData).toBeDefined();
+
+      const parsedTransaction = await mp.transactionParseMilestone(transactionData);
+      expect(parsedTransaction).toBeDefined();
+      expect(parsedTransaction.events).toBeDefined();
+      expect(parsedTransaction.events.length).toBeGreaterThan(0);
+      expect(parsedTransaction.input).toBeDefined();
+      expect(parsedTransaction.input.args).toBeDefined();
+      expect(parsedTransaction.input.args.length).toBeGreaterThan(0);
     }, 1200000);
 
     it("success flow refill", async () => {
@@ -1859,28 +1911,38 @@ describe("base", async () => {
     });
   });
 
-  it("getTransactionReceipt", async () => {
+  it("Parse embedded transaction milestone ", async () => {
     const transaction = await mp.transactionByHashMilestone(
-      "0xfacddeb62b2ff6b069221293dff2cdd8754e01ada2a9da2c4412e5ec5649ddfe",
+      "0x7cf2e8aa903b8f84983fae34b0ed6fe9c13192ef2d3144e50025354a25670161",
       true
     );
     expect(transaction).toBeDefined();
+
+    mp.changeEscrow("0x5bD6097bD68AE515502DCBa004a2f16fbF69eC20");
+    const transactionData = await mp.transactionParseMilestone(transaction);
+    expect(transactionData).toBeDefined();
   });
 });
 
-it("getTransactionByHash", async () => {
+it("Parse embedded transaction hourly", async () => {
   const transactionData = await mp.transactionByHashHourly(
-    "0x41925d10f1a2725a191b05311ad477fefe4d4cba67993db65b3540e99e2ef9f8"
+    // "0x71dba92983a70850bc335b11be7a4411704c203521d8a5b723dc64933a915ce0"
+    "0x954b7951e7bfcea593bd9daf54c918d7cda1797b22b44b45a6cd18bce9982fdf"
   );
   expect(transactionData).toBeDefined();
 
-  mp.changeEscrow("0x503BfB44DcD1092084Ca8DD6124035789897956d");
+  mp.changeEscrow("0x7E66D81E7641fBF3ceba2104b124DC7DAc71cAEB");
   const transactionParse = await mp.transactionParseHourly(transactionData);
   expect(transactionParse).toBeDefined();
 }, 1200000);
 
-it("mint mockUSDT", async () => {
-  mp.changeAccount(alice);
-  const mintResponse = await mp.mintMockUSDTTokens();
-  expect(mintResponse).toBeDefined();
+it("Parse embedded transaction fixed", async () => {
+  const transactionData = await mp.transactionByHash(
+    "0xef6fa11dbbbf569d1f9550669ec025440e9ffb484c46ffa727d9e27d69d9cbbc"
+  );
+  expect(transactionData).toBeDefined();
+
+  mp.changeEscrow("0x7048c8EC9100eE5cA86E92aE179D6A9b8aBB4b44");
+  const transactionParse = await mp.transactionParse(transactionData);
+  expect(transactionParse).toBeDefined();
 }, 1200000);

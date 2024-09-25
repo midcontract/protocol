@@ -1868,15 +1868,13 @@ export class MidcontractProtocol {
     });
 
     input.gas = BigInt(estimatedGasLimit) + (BigInt(estimatedGasLimit) * BigInt(30)) / BigInt(100);
-    input.maxPriorityFeePerGas = BigInt(10_000_000_000);
-    input.maxFeePerGas = BigInt(90_000_000_000);
 
-    // const gasPrice: bigint = await this.public.request({
-    //   method: "eth_gasPrice",
-    // });
-    //
-    // input.maxPriorityFeePerGas = (BigInt(gasPrice) * BigInt(120)) / BigInt(100);
-    // input.maxFeePerGas = (BigInt(gasPrice) * BigInt(140)) / BigInt(100);
+    const gasPrice: bigint = await this.public.request({
+      method: "eth_gasPrice",
+    });
+
+    input.maxPriorityFeePerGas = (BigInt(gasPrice) * BigInt(120)) / BigInt(100);
+    input.maxFeePerGas = (BigInt(gasPrice) * BigInt(140)) / BigInt(100);
 
     return this.wallet.writeContract(input);
   }

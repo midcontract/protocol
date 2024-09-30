@@ -1869,13 +1869,39 @@ export class MidcontractProtocol {
 
     input.gas = BigInt(estimatedGasLimit) + (BigInt(estimatedGasLimit) * BigInt(30)) / BigInt(100);
 
-    const gasPrice: bigint = await this.public.request({
-      method: "eth_gasPrice",
+    // const gasPrice: bigint = await this.public.request({
+    //   method: "eth_gasPrice",
+    // });
+    // input.maxPriorityFeePerGas = (BigInt(gasPrice) * BigInt(120)) / BigInt(100);
+    // input.maxFeePerGas = (BigInt(gasPrice) * BigInt(140)) / BigInt(100);
+
+    const latestBlock = await this.public.request({
+      method: "eth_getBlockByNumber",
+      params: ["latest", false], // Get the latest block without transactions
     });
 
-    input.maxPriorityFeePerGas = (BigInt(gasPrice) * BigInt(120)) / BigInt(100);
-    input.maxFeePerGas = (BigInt(gasPrice) * BigInt(140)) / BigInt(100);
+    const baseFeePerGas = BigInt(latestBlock?.baseFeePerGas ? latestBlock.baseFeePerGas : input.gas); // The base fee per gas in wei
 
+    // Set a maxPriorityFeePerGas (this can be a dynamic or fixed value based on urgency)
+    const maxPriorityFeePerGas = BigInt(10_000_000_000);
+
+    // Calculate maxFeePerGas as baseFee + priorityFee
+    const maxFeePerGas = baseFeePerGas + maxPriorityFeePerGas;
+
+    // Set these fees in the input
+    input.maxPriorityFeePerGas = maxPriorityFeePerGas;
+    input.maxFeePerGas = maxFeePerGas;
+
+    let transactionPrice =
+      Number(input.maxFeePerGas) / 1000000000 -
+      Number(input.maxPriorityFeePerGas) / 1000000000 +
+      Number(input.maxPriorityFeePerGas) / 1000000000;
+
+    transactionPrice = transactionPrice * (Number(input.gas) / 1000000000);
+
+    console.log("method -> ", input.functionName);
+    console.log("Transaction Price ->", transactionPrice);
+    // Send the transaction
     return this.wallet.writeContract(input);
   }
 

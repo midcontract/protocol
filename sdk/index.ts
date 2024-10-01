@@ -1882,10 +1882,11 @@ export class MidcontractProtocol {
 
     const baseFeePerGas = BigInt(latestBlock?.baseFeePerGas ? latestBlock.baseFeePerGas : input.gas); // The base fee per gas in wei
 
-    // Set a maxPriorityFeePerGas (this can be a dynamic or fixed value based on urgency)
-    const maxPriorityFeePerGas = BigInt(10_000_000_000);
+    let maxPriorityFeePerGas = await this.public.estimateMaxPriorityFeePerGas();
 
-    // Calculate maxFeePerGas as baseFee + priorityFee
+    maxPriorityFeePerGas =
+      maxPriorityFeePerGas / BigInt(1000000000) === 1n ? BigInt(10_000_000_000) : maxPriorityFeePerGas;
+
     const maxFeePerGas = baseFeePerGas + maxPriorityFeePerGas;
 
     // Set these fees in the input

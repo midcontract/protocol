@@ -1,6 +1,6 @@
 {
   "name": "@midcontract/protocol",
-  "version": "1.0.0-rc.29",
+  "version": "1.0.0-rc.29-a29fee6",
   "description": "Crypto payment protocol with escrow",
   "keywords": [
     "payment",
@@ -106,7 +106,7 @@
   },
   "dependencies": {
     "abitype": "^1.0.6",
-    "viem": "^2.20.0"
+    "viem": "2.7.8"
   },
   "devDependencies": {
     "@openzeppelin/contracts": "^5.0.2",

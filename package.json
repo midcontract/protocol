@@ -106,7 +106,7 @@
   },
   "dependencies": {
     "abitype": "^1.0.6",
-    "viem": "^2.21.16"
+    "viem": "^2.20.0"
   },
   "devDependencies": {
     "@openzeppelin/contracts": "^5.0.2",

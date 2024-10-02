@@ -24,10 +24,11 @@ import {
   toHex,
   type WalletClient,
   type WriteContractParameters,
+  type Transaction,
+  type TransactionReceipt,
 } from "viem";
 import { erc20Abi } from "abitype/abis";
 import { localhost, polygonAmoy, sepolia } from "viem/chains";
-import type { Transaction, TransactionReceipt } from "viem/types/transaction";
 import type { Hex } from "viem/types/misc";
 import {
   contractList,

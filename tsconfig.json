@@ -40,6 +40,6 @@
     "useDefineForClassFields": true,
     "types": ["vite/client", "node"],
   },
-  "include": ["sdk"],
-  "exclude": ["**/*.test.ts", "node_modules", ".history/**"],
+  "include": ["sdk/**/*"],
+  "exclude": ["node_modules", "**/node_modules/*", "**/*.test.ts", ".history/**"]
 }

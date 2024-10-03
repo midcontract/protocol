@@ -1,15 +1,15 @@
 import { type Abi, type Address } from "viem";
 import type { PartialRecord } from "@/common";
 import { NotSupportError } from "@/Error";
-import { amoyEscrowFixedPrice, escrowFixedPrice } from "@/abi/EscrowFixedPrice";
-import { amoyEscrowMilestone, escrowMilestone } from "@/abi/EscrowMilestone";
-import { escrowHourly } from "@/abi/EscrowHourly";
-import { amoyEscrowFactoryAbi, escrowFactoryAbi } from "@/abi/EscrowFactory";
-import { feeManagerAbi } from "@/abi/FeeManager";
+import { fixedPriceAbiBeta, fixedPriceAbiTest } from "@/abi/EscrowFixedPrice";
+import { milestoneAbiBeta, milestoneAbiTest } from "@/abi/EscrowMilestone";
+import { hourlyAbiTest } from "@/abi/EscrowHourly";
+import { factoryAbiBeta, factoryAbiTest } from "@/abi/EscrowFactory";
+import { feeManagerAbiTest } from "@/abi/FeeManager";
 
 export type Environment = "prod" | "beta" | "beta2" | "test" | "local";
 
-export type SymbolToken = "USDT" | "USDC" | "MockUSDT";
+export type SymbolToken = "USDT" | "USDC" | "MockUSDT" | "MockDAI";
 
 export type DataToken = {
   symbol: SymbolToken;
@@ -77,29 +77,34 @@ export const environmentList: EnvironmentList = {
     },
   },
   test: {
-    11_155_111: {
-      chainName: ChainNameEnum.Sepolia,
+    80_002: {
+      chainName: ChainNameEnum.PolygonAmoy,
       escrow: {
-        ESCROW_FIX_PRICE: "0xB3A88448768aa314bAdbE43A5d394B1B8Ef2db1b",
-        ESCROW_MILESTONE: "0x833cb00a77A82797de64C7453fE235CA369410Dc",
-        ESCROW_HOURLY: "0x2847A804d24d10a43E765873fc3a670c3b35937A",
-        FACTORY: "0xE5552A5830cd05a3f19553A8879582C33E9E46D8",
-        REGISTRY: "0x928D26474d15855c697F47A64f8877b228920d59",
-        MOCK_PAYMENT_TOKEN: "0x288f4508660A747C77A95D68D5b77eD89CdE9D03",
-        FEE_MANAGER: "0x617247BCcDB41F55AdbE31234b2a8aC273b57c35",
+        ESCROW_FIX_PRICE: "0x360d364B8fac12d90C698fA2B5f82d2A7a1E157A",
+        ESCROW_MILESTONE: "0x02594ECcd9c4fC101a32f1b63e886CF3677400a4",
+        ESCROW_HOURLY: "0x79B6d92E1a9df8dc4D307E93c52A734d4d52D582",
+        FACTORY: "0xA2681a0C44BC818D51618a41b1761B54972f92ba",
+        REGISTRY: "0xa09d32E9330ebcdeC3635845E0a5BC056149064e",
+        FEE_MANAGER: "0xcb0Cf019BFdCf0bD72009f94362cA782177D68Bd",
+        ADMIN_MANAGER: "0x1db3e13120498872930F86836B7757056617eF5F",
         ADMIN: "0x3eAb900aC1E0de25F465c63717cD1044fF69243C",
-        ADMIN_MANAGER: "0xaDfE561EE14842D05a7720a4d9Eb2579891f3D67",
-        FIXED_PRICE_ABI: escrowFixedPrice,
-        MILESTONE_ABI: escrowMilestone,
-        HOURLY_ABI: escrowHourly,
-        FACTORY_ABI: escrowFactoryAbi,
-        FEE_MANAGER_ABI: feeManagerAbi,
+        MOCK_PAYMENT_TOKEN: "0xD19AC10fE911d913Eb0B731925d3a69c80Bd6643",
+        FIXED_PRICE_ABI: fixedPriceAbiTest,
+        MILESTONE_ABI: milestoneAbiTest,
+        HOURLY_ABI: hourlyAbiTest,
+        FACTORY_ABI: factoryAbiTest,
+        FEE_MANAGER_ABI: feeManagerAbiTest,
       },
       tokenList: {
         MockUSDT: {
           symbol: "MockUSDT",
-          address: "0xa801061f49970Ef796e0fD0998348f3436ccCb1d",
+          address: "0xD19AC10fE911d913Eb0B731925d3a69c80Bd6643",
           decimals: 6,
+        },
+        MockDAI: {
+          symbol: "MockDAI",
+          address: "0xA0A8Ee7bF502EC4Eb5C670fE5c63092950dbB718",
+          decimals: 18,
         },
       },
     },
@@ -115,11 +120,11 @@ export const environmentList: EnvironmentList = {
         FEE_MANAGER: "0xA4857B1178425cfaaaeedBcFc220F242b4A518fA",
         ESCROW_PROXY: "0xEAC34764333F697c31a7C72ee74ED33D1dEfff0d",
         ADMIN: "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-        FIXED_PRICE_ABI: escrowFixedPrice,
-        MILESTONE_ABI: escrowMilestone,
-        HOURLY_ABI: escrowHourly,
-        FACTORY_ABI: escrowFactoryAbi,
-        FEE_MANAGER_ABI: feeManagerAbi,
+        FIXED_PRICE_ABI: fixedPriceAbiTest,
+        MILESTONE_ABI: milestoneAbiTest,
+        HOURLY_ABI: hourlyAbiTest,
+        FACTORY_ABI: factoryAbiTest,
+        FEE_MANAGER_ABI: feeManagerAbiTest,
       },
       tokenList: {
         USDT: {
@@ -136,7 +141,7 @@ export const environmentList: EnvironmentList = {
       escrow: {
         ESCROW_FIX_PRICE: "0x2B87991A32f258ac73CEF4Cd66eF06bEC8A89D21",
         ESCROW_MILESTONE: "0x7C92e7e623E4f634fC26Ae93b22fc3EDCcbBb054",
-        ESCROW_HOURLY: "0x9A000f8CEe6b2D2a2b0B86771B774851E9439361",
+        ESCROW_HOURLY: "0xa73b35C0d27b7698A6E0dd1E7F495a0c42a2412B",
         FACTORY: "0x704760EA333633DD875aA327c9e6cFba7b3bDA4a",
         REGISTRY: "0xf2f8bb2549313Ca95D4cE688C76b713e2D31E4E7",
         MOCK_PAYMENT_TOKEN: "0xD19AC10fE911d913Eb0B731925d3a69c80Bd6643",
@@ -144,11 +149,11 @@ export const environmentList: EnvironmentList = {
         ESCROW_PROXY: "0xEAC34764333F697c31a7C72ee74ED33D1dEfff0d",
         ADMIN: "0x3eAb900aC1E0de25F465c63717cD1044fF69243C",
         ADMIN_MANAGER: "0x1db3e13120498872930F86836B7757056617eF5F",
-        FIXED_PRICE_ABI: amoyEscrowFixedPrice,
-        MILESTONE_ABI: amoyEscrowMilestone,
-        HOURLY_ABI: escrowHourly,
-        FACTORY_ABI: amoyEscrowFactoryAbi,
-        FEE_MANAGER_ABI: feeManagerAbi,
+        FIXED_PRICE_ABI: fixedPriceAbiBeta,
+        MILESTONE_ABI: milestoneAbiBeta,
+        HOURLY_ABI: hourlyAbiTest,
+        FACTORY_ABI: factoryAbiBeta,
+        FEE_MANAGER_ABI: feeManagerAbiTest,
       },
       tokenList: {
         MockUSDT: {

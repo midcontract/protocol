@@ -28,7 +28,7 @@ import {
   type TransactionReceipt,
 } from "viem";
 import { erc20Abi } from "abitype/abis";
-import { localhost, polygonAmoy, sepolia } from "viem/chains";
+import { polygonAmoy } from "viem/chains";
 import type { Hex } from "viem/types/misc";
 import {
   contractList,
@@ -38,7 +38,7 @@ import {
   iterateTokenList,
   type SymbolToken,
 } from "@/environment";
-import { amoyEscrowFixedPrice, escrowFixedPrice } from "@/abi/EscrowFixedPrice";
+import { fixedPriceAbiBeta, fixedPriceAbiTest } from "@/abi/EscrowFixedPrice";
 import {
   CoreMidcontractProtocolError,
   NotEnoughError,
@@ -53,10 +53,10 @@ import { blastSepolia } from "@/chain/blastSepolia";
 import { type DecodedInput, parseHourlyInput, parseInput, parseMilestoneInput, type TransactionInput } from "@/parse";
 import { FeeManager } from "@/feeManager/feeManager";
 import { Deposit, DepositStatus, DisputeWinner, type FeeConfig, RefillType } from "@/Deposit";
-import { amoyEscrowFactoryAbi, escrowFactoryAbi } from "@/abi/EscrowFactory";
-import { amoyEscrowMilestone, escrowMilestone } from "@/abi/EscrowMilestone";
-import { amoyEscrowHourly, escrowHourly } from "@/abi/EscrowHourly";
-import { amoyFeeManagerAbi, feeManagerAbi } from "@/abi/FeeManager";
+import { factoryAbiBeta, factoryAbiTest } from "@/abi/EscrowFactory";
+import { milestoneAbiBeta, milestoneAbiTest } from "@/abi/EscrowMilestone";
+import { hourlyAbiBeta, hourlyAbiTest } from "@/abi/EscrowHourly";
+import { feeManagerAbiBeta, feeManagerAbiTest } from "@/abi/FeeManager";
 import { embeddedAbi, lightAccountAbi } from "@/abi/Embedded";
 
 export interface DepositAmount {
@@ -191,47 +191,42 @@ export class MidcontractProtocol {
   }
 
   static buildByEnvironment(name: Environment = "test", account?: Account, url?: string): MidcontractProtocol {
-    let chain = localhost as Chain;
+    let chain = polygonAmoy as Chain;
+    const contracts = contractList(name, chain.id);
+    let abiList: AbiList;
     switch (name) {
       case "test":
-        chain = sepolia;
+        chain = polygonAmoy;
+        abiList = {
+          fixedPriceAbi: fixedPriceAbiTest,
+          milestoneAbi: milestoneAbiTest,
+          hourlyAbi: hourlyAbiTest,
+          feeManagerAbi: feeManagerAbiTest,
+          factoryAbi: factoryAbiTest,
+        };
         break;
       case "beta":
         chain = blastSepolia;
+        abiList = {
+          fixedPriceAbi: fixedPriceAbiTest,
+          milestoneAbi: milestoneAbiTest,
+          hourlyAbi: hourlyAbiTest,
+          feeManagerAbi: feeManagerAbiTest,
+          factoryAbi: factoryAbiTest,
+        };
         break;
       case "beta2":
+      default:
         chain = polygonAmoy;
+        abiList = {
+          fixedPriceAbi: fixedPriceAbiBeta,
+          milestoneAbi: milestoneAbiBeta,
+          hourlyAbi: hourlyAbiBeta,
+          feeManagerAbi: feeManagerAbiBeta,
+          factoryAbi: factoryAbiBeta,
+        };
     }
-    const contracts = contractList(name, chain.id);
-    let abiList: AbiList;
-    if (name == "test") {
-      chain = sepolia;
-      abiList = {
-        fixedPriceAbi: escrowFixedPrice,
-        milestoneAbi: escrowMilestone,
-        hourlyAbi: escrowHourly,
-        feeManagerAbi: feeManagerAbi,
-        factoryAbi: escrowFactoryAbi,
-      };
-    } else if (name == "beta") {
-      chain = blastSepolia;
-      abiList = {
-        fixedPriceAbi: escrowFixedPrice,
-        milestoneAbi: escrowMilestone,
-        hourlyAbi: escrowHourly,
-        feeManagerAbi: feeManagerAbi,
-        factoryAbi: escrowFactoryAbi,
-      };
-    } else {
-      chain = polygonAmoy;
-      abiList = {
-        fixedPriceAbi: amoyEscrowFixedPrice,
-        milestoneAbi: amoyEscrowMilestone,
-        hourlyAbi: amoyEscrowHourly,
-        feeManagerAbi: amoyFeeManagerAbi,
-        factoryAbi: amoyEscrowFactoryAbi,
-      };
-    }
+
     const transport = url ? http(url) : http();
     if (url) {
       chain.rpcUrls = {
@@ -598,7 +593,6 @@ export class MidcontractProtocol {
       args: [encodedData as Hash, salt],
       functionName: "getContractorDataHash",
     });
-    console.log(result);
     return result;
   }
 

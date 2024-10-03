@@ -1,4 +1,4 @@
-export const feeManagerAbi = [
+export const feeManagerAbiTest = [
   {
     inputs: [
       { internalType: "uint16", name: "_coverage", type: "uint16" },
@@ -158,7 +158,7 @@ export const feeManagerAbi = [
   },
 ] as const;
 
-export const amoyFeeManagerAbi = [
+export const feeManagerAbiBeta = [
   {
     inputs: [
       { internalType: "uint16", name: "_coverage", type: "uint16" },

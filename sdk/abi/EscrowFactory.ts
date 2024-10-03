@@ -1,4 +1,4 @@
-export const escrowFactoryAbi = [
+export const factoryAbiTest = [
   {
     inputs: [
       { internalType: "address", name: "_registry", type: "address" },
@@ -132,7 +132,7 @@ export const escrowFactoryAbi = [
   },
 ] as const;
 
-export const amoyEscrowFactoryAbi = [
+export const factoryAbiBeta = [
   {
     inputs: [
       { internalType: "address", name: "_registry", type: "address" },

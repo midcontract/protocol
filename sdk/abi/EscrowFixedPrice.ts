@@ -1,4 +1,4 @@
-export const escrowFixedPrice = [
+export const fixedPriceAbiTest = [
   { inputs: [], name: "Escrow__AlreadyInitialized", type: "error" },
   { inputs: [], name: "Escrow__BlacklistedAccount", type: "error" },
   { inputs: [], name: "Escrow__CreateDisputeNotAllowed", type: "error" },
@@ -403,7 +403,7 @@ export const escrowFixedPrice = [
   },
 ] as const;
 
-export const amoyEscrowFixedPrice = [
+export const fixedPriceAbiBeta = [
   { inputs: [], name: "Escrow__AlreadyInitialized", type: "error" },
   { inputs: [], name: "Escrow__BlacklistedAccount", type: "error" },
   { inputs: [], name: "Escrow__CreateDisputeNotAllowed", type: "error" },

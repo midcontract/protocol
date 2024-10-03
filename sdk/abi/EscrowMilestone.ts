@@ -1,4 +1,4 @@
-export const escrowMilestone = [
+export const milestoneAbiTest = [
   { inputs: [], name: "Escrow__AlreadyInitialized", type: "error" },
   { inputs: [], name: "Escrow__BlacklistedAccount", type: "error" },
   { inputs: [], name: "Escrow__CreateDisputeNotAllowed", type: "error" },
@@ -485,7 +485,7 @@ export const escrowMilestone = [
   },
 ] as const;
 
-export const amoyEscrowMilestone = [
+export const milestoneAbiBeta = [
   { inputs: [], name: "Escrow__AlreadyInitialized", type: "error" },
   { inputs: [], name: "Escrow__BlacklistedAccount", type: "error" },
   { inputs: [], name: "Escrow__CreateDisputeNotAllowed", type: "error" },

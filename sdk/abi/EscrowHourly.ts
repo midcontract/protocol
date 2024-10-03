@@ -1,4 +1,4 @@
-export const escrowHourly = [
+export const hourlyAbiTest = [
   { inputs: [], name: "Escrow__AlreadyInitialized", type: "error" },
   { inputs: [], name: "Escrow__BlacklistedAccount", type: "error" },
   { inputs: [], name: "Escrow__CreateDisputeNotAllowed", type: "error" },
@@ -468,7 +468,7 @@ export const escrowHourly = [
   },
 ] as const;
 
-export const amoyEscrowHourly = [
+export const hourlyAbiBeta = [
   { inputs: [], name: "Escrow__AlreadyInitialized", type: "error" },
   { inputs: [], name: "Escrow__BlacklistedAccount", type: "error" },
   { inputs: [], name: "Escrow__CreateDisputeNotAllowed", type: "error" },

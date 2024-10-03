@@ -3,9 +3,9 @@ import type { Hex } from "viem/types/misc";
 import { NotMatchError } from "@/Error";
 import { ChainNameEnum, type SymbolToken } from "@/environment";
 import { DepositStatus, type DisputeWinner, RefillType } from "@/Deposit";
-import { amoyEscrowHourly, escrowHourly } from "@/abi/EscrowHourly";
-import { amoyEscrowFixedPrice, escrowFixedPrice } from "@/abi/EscrowFixedPrice";
-import { amoyEscrowMilestone, escrowMilestone } from "@/abi/EscrowMilestone";
+import { hourlyAbiBeta, hourlyAbiTest } from "@/abi/EscrowHourly";
+import { fixedPriceAbiBeta, fixedPriceAbiTest } from "@/abi/EscrowFixedPrice";
+import { milestoneAbiBeta, milestoneAbiTest } from "@/abi/EscrowMilestone";
 import { embeddedAbi, lightAccountAbi } from "@/abi/Embedded";
 
 interface ContractInput {
@@ -226,10 +226,10 @@ export function parseInput(data: Hex, chainName: ChainNameEnum, isEmbedded: bool
 
   switch (chainName) {
     case ChainNameEnum.Sepolia:
-      abi = escrowFixedPrice;
+      abi = fixedPriceAbiTest;
       break;
     case ChainNameEnum.PolygonAmoy:
-      abi = amoyEscrowFixedPrice;
+      abi = fixedPriceAbiBeta;
       break;
     default:
       throw new Error("Unsupported chainName");
@@ -344,10 +344,10 @@ export function parseMilestoneInput(
 
   switch (chainName) {
     case ChainNameEnum.Sepolia:
-      abi = escrowMilestone;
+      abi = milestoneAbiTest;
       break;
     case ChainNameEnum.PolygonAmoy:
-      abi = amoyEscrowMilestone;
+      abi = milestoneAbiBeta;
       break;
     default:
       throw new Error("Unsupported chainName");
@@ -478,10 +478,10 @@ export function parseHourlyInput(data: Hex, chainName: ChainNameEnum, isEmbedded
 
   switch (chainName) {
     case ChainNameEnum.Sepolia:
-      abi = escrowHourly;
+      abi = hourlyAbiTest;
       break;
     case ChainNameEnum.PolygonAmoy:
-      abi = amoyEscrowHourly;
+      abi = hourlyAbiBeta;
       break;
     default:
       throw new Error("Unsupported chainName");

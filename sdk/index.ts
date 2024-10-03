@@ -252,6 +252,7 @@ export class MidcontractProtocol {
     }
     const account = {
       address: accounts[0],
+      type: "json-rpc",
     } as Account;
     if (this.public.chain) {
       const currentChainId = BigInt(this.public.chain.id);

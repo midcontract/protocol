@@ -587,13 +587,12 @@ export class MidcontractProtocol {
 
   async escrowMakeDataHash(data: string, salt: Hash): Promise<Hash> {
     const encodedData = toHex(new TextEncoder().encode(data));
-    const result = await this.public.readContract({
+    return await this.public.readContract({
       address: this.escrow,
       abi: this.fixedPriceAbi,
       args: [encodedData as Hash, salt],
       functionName: "getContractorDataHash",
     });
-    return result;
   }
 
   public async getTransactionReceipt(hash: Hash, waitReceipt = false): Promise<TransactionReceipt | null> {

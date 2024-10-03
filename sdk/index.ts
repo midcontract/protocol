@@ -1651,7 +1651,7 @@ export class MidcontractProtocol {
   async transactionParse(data: TransactionData) {
     let isEmbedded = false;
     const { transaction, receipt } = data;
-    const embeddedAddress = "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789";
+    const embeddedAddress = "0x0000000071727de22e5e9d8baf0edac6f37da032";
     if (transaction.to?.toLowerCase() === embeddedAddress.toLowerCase()) {
       isEmbedded = true;
     }

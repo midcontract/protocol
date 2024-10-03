@@ -1872,10 +1872,10 @@ export class MidcontractProtocol {
 
     const latestBlock = await this.public.request({
       method: "eth_getBlockByNumber",
-      params: ["latest", false], // Get the latest block without transactions
+      params: ["latest", false],
     });
 
-    const baseFeePerGas = BigInt(latestBlock?.baseFeePerGas ? latestBlock.baseFeePerGas : input.gas); // The base fee per gas in wei
+    const baseFeePerGas = BigInt(latestBlock?.baseFeePerGas ? latestBlock.baseFeePerGas : input.gas);
 
     let maxPriorityFeePerGas = await this.public.estimateMaxPriorityFeePerGas();
 
@@ -1884,7 +1884,6 @@ export class MidcontractProtocol {
 
     const maxFeePerGas = baseFeePerGas + maxPriorityFeePerGas;
 
-    // Set these fees in the input
     input.maxPriorityFeePerGas = maxPriorityFeePerGas;
     input.maxFeePerGas = maxFeePerGas;
 
@@ -1897,7 +1896,7 @@ export class MidcontractProtocol {
 
     console.log("method -> ", input.functionName);
     console.log("Transaction Price ->", transactionPrice);
-    // Send the transaction
+
     return this.wallet.writeContract(input);
   }
 

@@ -1877,10 +1877,7 @@ export class MidcontractProtocol {
 
     const baseFeePerGas = BigInt(latestBlock?.baseFeePerGas ? latestBlock.baseFeePerGas : input.gas);
 
-    let maxPriorityFeePerGas = await this.public.estimateMaxPriorityFeePerGas();
-
-    maxPriorityFeePerGas =
-      maxPriorityFeePerGas / BigInt(1000000000) === 1n ? BigInt(10_000_000_000) : maxPriorityFeePerGas;
+    const maxPriorityFeePerGas = 30_000_000_000n;
 
     const maxFeePerGas = baseFeePerGas + maxPriorityFeePerGas;
 

@@ -58,6 +58,7 @@ import { milestoneAbiBeta, milestoneAbiTest } from "@/abi/EscrowMilestone";
 import { hourlyAbiBeta, hourlyAbiTest } from "@/abi/EscrowHourly";
 import { feeManagerAbiBeta, feeManagerAbiTest } from "@/abi/FeeManager";
 import { embeddedAbi, lightAccountAbi } from "@/abi/Embedded";
+import axios from "axios";
 
 export interface DepositAmount {
   totalDepositAmount: number;
@@ -164,8 +165,16 @@ export class MidcontractProtocol {
   public hourlyAbi: [];
   public feeManagerAbi: [];
   public factoryAbi: [];
+  public environment: Environment;
 
-  constructor(chain: Chain, transport: HttpTransport, contractList: ContractList, abiList: AbiList, account?: Account) {
+  constructor(
+    chain: Chain,
+    transport: HttpTransport,
+    contractList: ContractList,
+    abiList: AbiList,
+    environment: Environment,
+    account?: Account
+  ) {
     this.contractList = contractList;
     this.wallet = createWalletClient({
       account,
@@ -188,6 +197,7 @@ export class MidcontractProtocol {
     this.hourlyAbi = abiList.hourlyAbi as [];
     this.feeManagerAbi = abiList.feeManagerAbi as [];
     this.factoryAbi = abiList.factoryAbi as [];
+    this.environment = environment;
   }
 
   static buildByEnvironment(name: Environment = "test", account?: Account, url?: string): MidcontractProtocol {
@@ -233,7 +243,7 @@ export class MidcontractProtocol {
         default: { http: [url] },
       } as const;
     }
-    return new MidcontractProtocol(chain, transport, contracts, abiList, account);
+    return new MidcontractProtocol(chain, transport, contracts, abiList, name, account);
   }
 
   /** @deprecated */
@@ -413,7 +423,7 @@ export class MidcontractProtocol {
       address: this.escrow,
       args: [contractId, milestoneId],
       abi: this.milestoneAbi,
-      functionName: "milestoneData",
+      functionName: "milestoneDetails",
     });
 
     for (const token of this.tokenList) {
@@ -446,7 +456,7 @@ export class MidcontractProtocol {
       address: this.escrow,
       args: [contractId, weekId],
       abi: this.hourlyAbi,
-      functionName: "contractWeeks",
+      functionName: "weeklyEntries",
     });
 
     for (const token of this.tokenList) {
@@ -549,7 +559,7 @@ export class MidcontractProtocol {
       param = request;
     } catch (error) {
       if (error instanceof ContractFunctionExecutionError) {
-        throw new SimulateError(error.shortMessage);
+        throw new SimulateError(error.message);
       } else {
         throw new CoreMidcontractProtocolError(JSON.stringify(error));
       }
@@ -659,7 +669,7 @@ export class MidcontractProtocol {
       };
     } catch (error) {
       if (error instanceof ContractFunctionExecutionError) {
-        throw new SimulateError(error.shortMessage);
+        throw new SimulateError(error.message);
       } else {
         throw new CoreMidcontractProtocolError(JSON.stringify(error));
       }
@@ -720,7 +730,7 @@ export class MidcontractProtocol {
       };
     } catch (error) {
       if (error instanceof ContractFunctionExecutionError) {
-        throw new SimulateError(error.shortMessage);
+        throw new SimulateError(error.message);
       } else {
         throw new CoreMidcontractProtocolError(JSON.stringify(error));
       }
@@ -748,6 +758,7 @@ export class MidcontractProtocol {
       amountToClaim: parseUnits(String(deposit.amountToClaim || 0), token.decimals),
       amountToWithdraw: parseUnits(String(deposit.amountToWithdraw || 0), token.decimals),
       feeConfig: deposit.feeConfig,
+      weekStatus: DepositStatus.NONE,
     };
 
     await this.tokenRequireBalance(account.address, totalDepositAmount, tokenSymbol);
@@ -771,7 +782,7 @@ export class MidcontractProtocol {
       };
     } catch (error) {
       if (error instanceof ContractFunctionExecutionError) {
-        throw new SimulateError(error.shortMessage);
+        throw new SimulateError(error.message);
       } else {
         throw new CoreMidcontractProtocolError(JSON.stringify(error));
       }
@@ -796,7 +807,7 @@ export class MidcontractProtocol {
       };
     } catch (error) {
       if (error instanceof ContractFunctionExecutionError) {
-        throw new SimulateError(error.shortMessage);
+        throw new SimulateError(error.message);
       } else {
         throw new CoreMidcontractProtocolError(JSON.stringify(error));
       }
@@ -846,19 +857,27 @@ export class MidcontractProtocol {
     const { totalDepositAmount } = await this.escrowDepositAmount(value, deposit.feeConfig);
     await this.tokenRequireAllowance(account.address, totalDepositAmount, deposit.paymentToken);
 
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.fixedPriceAbi,
-      account: this.account,
-      args: [contractId, parseUnits(value.toString(), token.decimals)],
-      functionName: "refill",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.fixedPriceAbi,
+        account: this.account,
+        args: [contractId, parseUnits(value.toString(), token.decimals)],
+        functionName: "refill",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async escrowRefillMilestone(
@@ -877,19 +896,27 @@ export class MidcontractProtocol {
     const { totalDepositAmount } = await this.escrowDepositAmount(value, deposit.feeConfig);
     await this.tokenRequireAllowance(account.address, totalDepositAmount, deposit.paymentToken);
 
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.milestoneAbi,
-      account: this.account,
-      args: [contractId, milestoneId, parseUnits(value.toString(), token.decimals)],
-      functionName: "refill",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.milestoneAbi,
+        account: this.account,
+        args: [contractId, milestoneId, parseUnits(value.toString(), token.decimals)],
+        functionName: "refill",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async escrowRefillHourly(
@@ -913,19 +940,27 @@ export class MidcontractProtocol {
 
     const parsedAmount = parseUnits(value.toString(), token.decimals);
 
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.hourlyAbi,
-      account: this.account,
-      args: [contractId, weekId, parsedAmount, refillType],
-      functionName: "refill",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.hourlyAbi,
+        account: this.account,
+        args: [contractId, weekId, parsedAmount, refillType],
+        functionName: "refill",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async escrowApprove(input: ApproveInput, waitReceipt = true): Promise<TransactionId> {
@@ -944,19 +979,27 @@ export class MidcontractProtocol {
       return await this.escrowRefill(input.contractId, input.valueAdditional);
     }
 
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.fixedPriceAbi,
-      account,
-      args: [input.contractId, parseUnits(input.valueApprove.toString(), token.decimals), recipient],
-      functionName: "approve",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.fixedPriceAbi,
+        account,
+        args: [input.contractId, parseUnits(input.valueApprove.toString(), token.decimals), recipient],
+        functionName: "approve",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async escrowApproveMilestone(input: ApproveInputMilestone, waitReceipt = true): Promise<TransactionId> {
@@ -971,19 +1014,32 @@ export class MidcontractProtocol {
     const token = this.dataToken(input.token);
     const account = this.account;
 
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.milestoneAbi,
-      account,
-      args: [input.contractId, input.milestoneId, parseUnits(input.valueApprove.toString(), token.decimals), recipient],
-      functionName: "approve",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.milestoneAbi,
+        account,
+        args: [
+          input.contractId,
+          input.milestoneId,
+          parseUnits(input.valueApprove.toString(), token.decimals),
+          recipient,
+        ],
+        functionName: "approve",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async escrowApproveHourly(input: ApproveInputHourly, waitReceipt = true): Promise<TransactionId> {
@@ -1003,19 +1059,27 @@ export class MidcontractProtocol {
     await this.tokenRequireAllowance(account.address, totalDepositAmount, input.token);
     await this.tokenRequireAllowance(account.address, totalDepositAmount, input.token);
 
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.hourlyAbi,
-      account,
-      args: [input.contractId, input.weekId, parseUnits(input.valueApprove.toString(), token.decimals), recipient],
-      functionName: "approve",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.hourlyAbi,
+        account,
+        args: [input.contractId, input.weekId, parseUnits(input.valueApprove.toString(), token.decimals), recipient],
+        functionName: "approve",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async escrowApproveByAdminHourly(input: ApproveByAdminInputHourly, waitReceipt = true): Promise<TransactionId> {
@@ -1041,57 +1105,81 @@ export class MidcontractProtocol {
     await this.tokenRequireAllowance(account.address, totalDepositAmount, input.token);
     await this.tokenRequireAllowance(account.address, totalDepositAmount, input.token);
 
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.hourlyAbi,
-      account,
-      args: [
-        input.contractId,
-        input.weekId,
-        parseUnits(input.valueApprove.toString(), token.decimals),
-        recipient,
-        input.initializeNewWeek,
-      ],
-      functionName: "adminApprove",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.hourlyAbi,
+        account,
+        args: [
+          input.contractId,
+          input.weekId,
+          parseUnits(input.valueApprove.toString(), token.decimals),
+          recipient,
+          input.initializeNewWeek,
+        ],
+        functionName: "adminApprove",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async escrowClaim(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.fixedPriceAbi,
-      account: this.account,
-      args: [contractId],
-      functionName: "claim",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.fixedPriceAbi,
+        account: this.account,
+        args: [contractId],
+        functionName: "claim",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async escrowClaimMilestone(contractId: bigint, milestoneId: bigint, waitReceipt = true): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.milestoneAbi,
-      account: this.account,
-      args: [contractId, milestoneId],
-      functionName: "claim",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.milestoneAbi,
+        account: this.account,
+        args: [contractId, milestoneId],
+        functionName: "claim",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async escrowClaimAllMilestone(
@@ -1100,195 +1188,291 @@ export class MidcontractProtocol {
     endMilestoneId: bigint,
     waitReceipt = true
   ): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.milestoneAbi,
-      account: this.account,
-      args: [contractId, startMilestoneId, endMilestoneId],
-      functionName: "claimAll",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.milestoneAbi,
+        account: this.account,
+        args: [contractId, startMilestoneId, endMilestoneId],
+        functionName: "claimAll",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async escrowClaimHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.hourlyAbi,
-      account: this.account,
-      args: [contractId, weekId],
-      functionName: "claim",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.hourlyAbi,
+        account: this.account,
+        args: [contractId, weekId],
+        functionName: "claim",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async escrowWithdraw(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.fixedPriceAbi,
-      account: this.account,
-      args: [contractId],
-      functionName: "withdraw",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.fixedPriceAbi,
+        account: this.account,
+        args: [contractId],
+        functionName: "withdraw",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async escrowWithdrawMilestone(contractId: bigint, milestoneId: bigint, waitReceipt = true): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.milestoneAbi,
-      account: this.account,
-      args: [contractId, milestoneId],
-      functionName: "withdraw",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.milestoneAbi,
+        account: this.account,
+        args: [contractId, milestoneId],
+        functionName: "withdraw",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async escrowWithdrawHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.hourlyAbi,
-      account: this.account,
-      args: [contractId, weekId],
-      functionName: "withdraw",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.hourlyAbi,
+        account: this.account,
+        args: [contractId, weekId],
+        functionName: "withdraw",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async requestReturn(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.fixedPriceAbi,
-      account: this.account,
-      args: [contractId],
-      functionName: "requestReturn",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.fixedPriceAbi,
+        account: this.account,
+        args: [contractId],
+        functionName: "requestReturn",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async requestReturnMilestone(contractId: bigint, milestoneId: bigint, waitReceipt = true): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.milestoneAbi,
-      account: this.account,
-      args: [contractId, milestoneId],
-      functionName: "requestReturn",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.milestoneAbi,
+        account: this.account,
+        args: [contractId, milestoneId],
+        functionName: "requestReturn",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async requestReturnHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.hourlyAbi,
-      account: this.account,
-      args: [contractId, weekId],
-      functionName: "requestReturn",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.hourlyAbi,
+        account: this.account,
+        args: [contractId, weekId],
+        functionName: "requestReturn",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async approveReturn(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.fixedPriceAbi,
-      account: this.account,
-      args: [contractId],
-      functionName: "approveReturn",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.fixedPriceAbi,
+        account: this.account,
+        args: [contractId],
+        functionName: "approveReturn",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async approveReturnMilestone(contractId: bigint, milestoneId: bigint, waitReceipt = true): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.milestoneAbi,
-      account: this.account,
-      args: [contractId, milestoneId],
-      functionName: "approveReturn",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.milestoneAbi,
+        account: this.account,
+        args: [contractId, milestoneId],
+        functionName: "approveReturn",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async approveReturnHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.hourlyAbi,
-      account: this.account,
-      args: [contractId, weekId],
-      functionName: "approveReturn",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.hourlyAbi,
+        account: this.account,
+        args: [contractId, weekId],
+        functionName: "approveReturn",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async cancelReturn(contractId: bigint, status: DepositStatus, waitReceipt = true): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.fixedPriceAbi,
-      account: this.account,
-      args: [contractId, status],
-      functionName: "cancelReturn",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.fixedPriceAbi,
+        account: this.account,
+        args: [contractId, status],
+        functionName: "cancelReturn",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async cancelReturnMilestone(
@@ -1297,19 +1481,27 @@ export class MidcontractProtocol {
     status: DepositStatus,
     waitReceipt = true
   ): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.milestoneAbi,
-      account: this.account,
-      args: [contractId, milestoneId, status],
-      functionName: "cancelReturn",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.milestoneAbi,
+        account: this.account,
+        args: [contractId, milestoneId, status],
+        functionName: "cancelReturn",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async cancelReturnHourly(
@@ -1318,67 +1510,99 @@ export class MidcontractProtocol {
     status: DepositStatus,
     waitReceipt = true
   ): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.hourlyAbi,
-      account: this.account,
-      args: [contractId, weekId, status],
-      functionName: "cancelReturn",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.hourlyAbi,
+        account: this.account,
+        args: [contractId, weekId, status],
+        functionName: "cancelReturn",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async createDispute(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.fixedPriceAbi,
-      account: this.account,
-      args: [contractId],
-      functionName: "createDispute",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.fixedPriceAbi,
+        account: this.account,
+        args: [contractId],
+        functionName: "createDispute",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async createDisputeMilestone(contractId: bigint, milestoneId: bigint, waitReceipt = true): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.milestoneAbi,
-      account: this.account,
-      args: [contractId, milestoneId],
-      functionName: "createDispute",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.milestoneAbi,
+        account: this.account,
+        args: [contractId, milestoneId],
+        functionName: "createDispute",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async createDisputeHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.hourlyAbi,
-      account: this.account,
-      args: [contractId, weekId],
-      functionName: "createDispute",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.hourlyAbi,
+        account: this.account,
+        args: [contractId, weekId],
+        functionName: "createDispute",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async resolveDispute(
@@ -1392,19 +1616,28 @@ export class MidcontractProtocol {
     const token = this.dataToken(deposit.paymentToken);
     const clientAmountConverted = clientAmount ? parseUnits(clientAmount.toString(), token.decimals) : 0n;
     const contractorAmountConverted = contractorAmount ? parseUnits(contractorAmount.toString(), token.decimals) : 0n;
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.fixedPriceAbi,
-      account: this.account,
-      args: [contractId, winner, clientAmountConverted, contractorAmountConverted],
-      functionName: "resolveDispute",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.fixedPriceAbi,
+        account: this.account,
+        args: [contractId, winner, clientAmountConverted, contractorAmountConverted],
+        functionName: "resolveDispute",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async resolveDisputeMilestone(
@@ -1419,19 +1652,28 @@ export class MidcontractProtocol {
     const token = this.dataToken(deposit.paymentToken);
     const clientAmountConverted = clientAmount ? parseUnits(clientAmount.toString(), token.decimals) : 0n;
     const contractorAmountConverted = contractorAmount ? parseUnits(contractorAmount.toString(), token.decimals) : 0n;
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.milestoneAbi,
-      account: this.account,
-      args: [contractId, milestoneId, winner, clientAmountConverted, contractorAmountConverted],
-      functionName: "resolveDispute",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.milestoneAbi,
+        account: this.account,
+        args: [contractId, milestoneId, winner, clientAmountConverted, contractorAmountConverted],
+        functionName: "resolveDispute",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async resolveDisputeHourly(
@@ -1446,19 +1688,28 @@ export class MidcontractProtocol {
     const token = this.dataToken(deposit.paymentToken);
     const clientAmountConverted = clientAmount ? parseUnits(clientAmount.toString(), token.decimals) : 0n;
     const contractorAmountConverted = contractorAmount ? parseUnits(contractorAmount.toString(), token.decimals) : 0n;
-    const { request } = await this.public.simulateContract({
-      address: this.escrow,
-      abi: this.hourlyAbi,
-      account: this.account,
-      args: [contractId, weekId, winner, clientAmountConverted, contractorAmountConverted],
-      functionName: "resolveDispute",
-    });
-    const hash = await this.send(request);
-    const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-    return {
-      id: hash,
-      status: receipt ? receipt.status : "pending",
-    };
+
+    try {
+      const { request } = await this.public.simulateContract({
+        address: this.escrow,
+        abi: this.hourlyAbi,
+        account: this.account,
+        args: [contractId, weekId, winner, clientAmountConverted, contractorAmountConverted],
+        functionName: "resolveDispute",
+      });
+      const hash = await this.send(request);
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async mintMockUSDTTokens(): Promise<TransactionId> {
@@ -1499,60 +1750,84 @@ export class MidcontractProtocol {
     userEscrow: Address;
     salt: Hash;
   }> {
-    const data = await this.public.simulateContract({
-      address: this.factoryEscrow,
-      abi: this.factoryAbi,
-      account: this.account,
-      args: [EscrowType.FixedPrice, this.account.address, this.managerAddress, this.registryEscrow],
-      functionName: "deployEscrow",
-    });
-    const hash = await this.send(data.request);
-    await this.getTransactionReceipt(hash, true);
-    const salt = this.generateRandomNumber();
-    return {
-      userEscrow: data.result,
-      salt,
-    };
+    try {
+      const data = await this.public.simulateContract({
+        address: this.factoryEscrow,
+        abi: this.factoryAbi,
+        account: this.account,
+        args: [EscrowType.FixedPrice, this.account.address, this.managerAddress, this.registryEscrow],
+        functionName: "deployEscrow",
+      });
+      const hash = await this.send(data.request);
+      await this.getTransactionReceipt(hash, true);
+      const salt = this.generateRandomNumber();
+      return {
+        userEscrow: data.result,
+        salt,
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async deployMilestoneEscrow(): Promise<{
     userEscrow: Address;
     salt: Hash;
   }> {
-    const data = await this.public.simulateContract({
-      address: this.factoryEscrow,
-      abi: this.factoryAbi,
-      account: this.account,
-      args: [EscrowType.Milestone, this.account.address, this.managerAddress, this.registryEscrow],
-      functionName: "deployEscrow",
-    });
-    const hash = await this.send(data.request);
-    await this.getTransactionReceipt(hash, true);
-    const salt = this.generateRandomNumber();
-    return {
-      userEscrow: data.result,
-      salt,
-    };
+    try {
+      const data = await this.public.simulateContract({
+        address: this.factoryEscrow,
+        abi: this.factoryAbi,
+        account: this.account,
+        args: [EscrowType.Milestone, this.account.address, this.managerAddress, this.registryEscrow],
+        functionName: "deployEscrow",
+      });
+      const hash = await this.send(data.request);
+      await this.getTransactionReceipt(hash, true);
+      const salt = this.generateRandomNumber();
+      return {
+        userEscrow: data.result,
+        salt,
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async deployHourlyEscrow(): Promise<{
     userEscrow: Address;
     salt: Hash;
   }> {
-    const data = await this.public.simulateContract({
-      address: this.factoryEscrow,
-      abi: this.factoryAbi,
-      account: this.account,
-      args: [EscrowType.Hourly, this.account.address, this.managerAddress, this.registryEscrow],
-      functionName: "deployEscrow",
-    });
-    const hash = await this.send(data.request);
-    await this.getTransactionReceipt(hash, true);
-    const salt = this.generateRandomNumber();
-    return {
-      userEscrow: data.result,
-      salt,
-    };
+    try {
+      const data = await this.public.simulateContract({
+        address: this.factoryEscrow,
+        abi: this.factoryAbi,
+        account: this.account,
+        args: [EscrowType.Hourly, this.account.address, this.managerAddress, this.registryEscrow],
+        functionName: "deployEscrow",
+      });
+      const hash = await this.send(data.request);
+      await this.getTransactionReceipt(hash, true);
+      const salt = this.generateRandomNumber();
+      return {
+        userEscrow: data.result,
+        salt,
+      };
+    } catch (error) {
+      if (error instanceof ContractFunctionExecutionError) {
+        throw new SimulateError(error.message);
+      } else {
+        throw new CoreMidcontractProtocolError(JSON.stringify(error));
+      }
+    }
   }
 
   async updateDefaultFees(coverageFee: number, claimFee: number): Promise<void> {
@@ -1875,21 +2150,21 @@ export class MidcontractProtocol {
       params: ["latest", false],
     });
 
-    const baseFeePerGas = BigInt(latestBlock?.baseFeePerGas ? latestBlock.baseFeePerGas : input.gas);
+    const baseFeePerGas = BigInt(latestBlock?.baseFeePerGas ? latestBlock.baseFeePerGas : 15n);
 
-    const maxPriorityFeePerGas = 30_000_000_000n;
+    let maxPriorityFeePerGas = 30_000_000_000n;
+
+    if (this.environment === "test" || this.environment === "beta2") {
+      const gasApiResponse = await axios.get("https://gasstation.polygon.technology/amoy");
+      maxPriorityFeePerGas = BigInt(gasApiResponse.data.standard.maxPriorityFee * 1_000_000_000);
+    }
 
     const maxFeePerGas = baseFeePerGas + maxPriorityFeePerGas;
 
     input.maxPriorityFeePerGas = maxPriorityFeePerGas;
     input.maxFeePerGas = maxFeePerGas;
 
-    let transactionPrice =
-      Number(input.maxFeePerGas) / 1000000000 -
-      Number(input.maxPriorityFeePerGas) / 1000000000 +
-      Number(input.maxPriorityFeePerGas) / 1000000000;
-
-    transactionPrice = transactionPrice * (Number(input.gas) / 1000000000);
+    const transactionPrice = ((Number(maxFeePerGas) / 1000000000) * Number(input.gas)) / 1000000000;
 
     console.log("method -> ", input.functionName);
     console.log("Transaction Price ->", transactionPrice);

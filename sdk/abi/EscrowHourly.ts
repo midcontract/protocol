@@ -296,21 +296,6 @@ export const hourlyAbiTest = [
   },
   {
     inputs: [
-      { internalType: "uint256", name: "contractId", type: "uint256" },
-      { internalType: "uint256", name: "", type: "uint256" },
-    ],
-    name: "contractWeeks",
-    outputs: [
-      { internalType: "address", name: "contractor", type: "address" },
-      { internalType: "uint256", name: "amountToClaim", type: "uint256" },
-      { internalType: "uint256", name: "amountToWithdraw", type: "uint256" },
-      { internalType: "enum Enums.FeeConfig", name: "feeConfig", type: "uint8" },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
       { internalType: "uint256", name: "_contractId", type: "uint256" },
       { internalType: "uint256", name: "_weekId", type: "uint256" },
     ],
@@ -330,9 +315,10 @@ export const hourlyAbiTest = [
           { internalType: "uint256", name: "amountToClaim", type: "uint256" },
           { internalType: "uint256", name: "amountToWithdraw", type: "uint256" },
           { internalType: "enum Enums.FeeConfig", name: "feeConfig", type: "uint8" },
+          { internalType: "enum Enums.Status", name: "weekStatus", type: "uint8" },
         ],
-        internalType: "struct IEscrowHourly.Deposit",
-        name: "_deposit",
+        internalType: "struct IEscrowHourly.WeeklyEntry",
+        name: "_weeklyEntry",
         type: "tuple",
       },
     ],
@@ -454,6 +440,22 @@ export const hourlyAbiTest = [
     name: "updateRegistry",
     outputs: [],
     stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "contractId", type: "uint256" },
+      { internalType: "uint256", name: "", type: "uint256" },
+    ],
+    name: "weeklyEntries",
+    outputs: [
+      { internalType: "address", name: "contractor", type: "address" },
+      { internalType: "uint256", name: "amountToClaim", type: "uint256" },
+      { internalType: "uint256", name: "amountToWithdraw", type: "uint256" },
+      { internalType: "enum Enums.FeeConfig", name: "feeConfig", type: "uint8" },
+      { internalType: "enum Enums.Status", name: "weekStatus", type: "uint8" },
+    ],
+    stateMutability: "view",
     type: "function",
   },
   {
@@ -766,21 +768,6 @@ export const hourlyAbiBeta = [
   },
   {
     inputs: [
-      { internalType: "uint256", name: "contractId", type: "uint256" },
-      { internalType: "uint256", name: "", type: "uint256" },
-    ],
-    name: "contractWeeks",
-    outputs: [
-      { internalType: "address", name: "contractor", type: "address" },
-      { internalType: "uint256", name: "amountToClaim", type: "uint256" },
-      { internalType: "uint256", name: "amountToWithdraw", type: "uint256" },
-      { internalType: "enum Enums.FeeConfig", name: "feeConfig", type: "uint8" },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [
       { internalType: "uint256", name: "_contractId", type: "uint256" },
       { internalType: "uint256", name: "_weekId", type: "uint256" },
     ],
@@ -800,9 +787,10 @@ export const hourlyAbiBeta = [
           { internalType: "uint256", name: "amountToClaim", type: "uint256" },
           { internalType: "uint256", name: "amountToWithdraw", type: "uint256" },
           { internalType: "enum Enums.FeeConfig", name: "feeConfig", type: "uint8" },
+          { internalType: "enum Enums.Status", name: "weekStatus", type: "uint8" },
         ],
-        internalType: "struct IEscrowHourly.Deposit",
-        name: "_deposit",
+        internalType: "struct IEscrowHourly.WeeklyEntry",
+        name: "_weeklyEntry",
         type: "tuple",
       },
     ],
@@ -924,6 +912,22 @@ export const hourlyAbiBeta = [
     name: "updateRegistry",
     outputs: [],
     stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "contractId", type: "uint256" },
+      { internalType: "uint256", name: "", type: "uint256" },
+    ],
+    name: "weeklyEntries",
+    outputs: [
+      { internalType: "address", name: "contractor", type: "address" },
+      { internalType: "uint256", name: "amountToClaim", type: "uint256" },
+      { internalType: "uint256", name: "amountToWithdraw", type: "uint256" },
+      { internalType: "enum Enums.FeeConfig", name: "feeConfig", type: "uint8" },
+      { internalType: "enum Enums.Status", name: "weekStatus", type: "uint8" },
+    ],
+    stateMutability: "view",
     type: "function",
   },
   {

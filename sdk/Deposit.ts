@@ -3,6 +3,7 @@ import { CoreMidcontractProtocolError } from "@/Error";
 import type { SymbolToken } from "@/environment";
 
 export enum DepositStatus {
+  NONE,
   ACTIVE, // The contract is active and ongoing
   SUBMITTED, // Work submitted by the contractor but not yet approved
   APPROVED, // Work has been approved

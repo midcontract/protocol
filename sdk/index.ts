@@ -58,7 +58,7 @@ import { milestoneAbiBeta, milestoneAbiTest } from "@/abi/EscrowMilestone";
 import { hourlyAbiBeta, hourlyAbiTest } from "@/abi/EscrowHourly";
 import { feeManagerAbiBeta, feeManagerAbiTest } from "@/abi/FeeManager";
 import { embeddedAbi, lightAccountAbi } from "@/abi/Embedded";
-import axios from "axios";
+// import axios from "axios";
 
 export interface DepositAmount {
   totalDepositAmount: number;
@@ -2150,14 +2150,14 @@ export class MidcontractProtocol {
       params: ["latest", false],
     });
 
-    const baseFeePerGas = BigInt(latestBlock?.baseFeePerGas ? latestBlock.baseFeePerGas : 15n);
+    const baseFeePerGas = BigInt(latestBlock?.baseFeePerGas ? latestBlock.baseFeePerGas : input.gas);
 
-    let maxPriorityFeePerGas = 30_000_000_000n;
+    const maxPriorityFeePerGas = 30_000_000_000n;
 
-    if (this.environment === "test" || this.environment === "beta2") {
-      const gasApiResponse = await axios.get("https://gasstation.polygon.technology/amoy");
-      maxPriorityFeePerGas = BigInt(gasApiResponse.data.standard.maxPriorityFee * 1_000_000_000);
-    }
+    // if (this.environment === "test" || this.environment === "beta2") {
+    //   const gasApiResponse = await axios.get("https://gasstation.polygon.technology/amoy");
+    //   maxPriorityFeePerGas = BigInt(gasApiResponse.data.standard.maxPriorityFee * 1_000_000_000);
+    // }
 
     const maxFeePerGas = baseFeePerGas + maxPriorityFeePerGas;
 

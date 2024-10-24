@@ -2152,7 +2152,7 @@ export class MidcontractProtocol {
 
     const baseFeePerGas = BigInt(latestBlock?.baseFeePerGas ? latestBlock.baseFeePerGas : input.gas);
 
-    const maxPriorityFeePerGas = 30_000_000_000n;
+    const maxPriorityFeePerGas = 40_000_000_000n;
 
     // if (this.environment === "test" || this.environment === "beta2") {
     //   const gasApiResponse = await axios.get("https://gasstation.polygon.technology/amoy");

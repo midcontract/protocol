@@ -346,7 +346,7 @@ export class MidcontractProtocol {
     };
   }
 
-  async getCoverageFee(wallet: Hash): Promise<number> {
+  async getCoverageFee(wallet?: Hash): Promise<number> {
     const feeManager = new FeeManager(
       this.wallet,
       this.public,
@@ -359,7 +359,7 @@ export class MidcontractProtocol {
     return Number(coverageFee);
   }
 
-  async getClaimFee(wallet: Hash): Promise<number> {
+  async getClaimFee(wallet?: Hash): Promise<number> {
     const feeManager = new FeeManager(
       this.wallet,
       this.public,

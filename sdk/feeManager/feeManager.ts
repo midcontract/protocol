@@ -72,31 +72,51 @@ export class FeeManager {
     };
   }
 
-  async getCoverageFee(wallet: Hash) {
+  async getCoverageFee(wallet?: Hash) {
     const BPS = await this.getBPS();
-    const result = await this.public.readContract({
-      address: this.feeManagerEscrow,
-      abi: this.abi,
-      account: this.account,
-      args: [wallet],
-      functionName: "getCoverageFee",
-    });
+    let coverageFee;
+    if (wallet) {
+      coverageFee = await this.public.readContract({
+        address: this.feeManagerEscrow,
+        abi: this.abi,
+        account: this.account,
+        args: [wallet],
+        functionName: "getCoverageFee",
+      });
+    } else {
+      const result = await this.public.readContract({
+        address: this.feeManagerEscrow,
+        abi: this.abi,
+        functionName: "defaultFees",
+      });
+      coverageFee = Number(result[0]);
+    }
     return {
-      coverageFee: Number(result) / Number(BPS),
+      coverageFee: Number(coverageFee) / Number(BPS),
     };
   }
 
-  async getClaimFee(wallet: Hash) {
+  async getClaimFee(wallet?: Hash) {
     const BPS = await this.getBPS();
-    const result = await this.public.readContract({
-      address: this.feeManagerEscrow,
-      abi: this.abi,
-      account: this.account,
-      args: [wallet],
-      functionName: "getClaimFee",
-    });
+    let claimFee;
+    if (wallet) {
+      claimFee = await this.public.readContract({
+        address: this.feeManagerEscrow,
+        abi: this.abi,
+        account: this.account,
+        args: [wallet],
+        functionName: "getClaimFee",
+      });
+    } else {
+      const result = await this.public.readContract({
+        address: this.feeManagerEscrow,
+        abi: this.abi,
+        functionName: "defaultFees",
+      });
+      claimFee = Number(result[1]);
+    }
     return {
-      claimFee: Number(result) / Number(BPS),
+      claimFee: Number(claimFee) / Number(BPS),
     };
   }
 

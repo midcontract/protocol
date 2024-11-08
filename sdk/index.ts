@@ -1359,13 +1359,13 @@ export class MidcontractProtocol {
     }
   }
 
-  async requestReturnHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
+  async requestReturnHourly(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     try {
       const { request } = await this.public.simulateContract({
         address: this.escrow,
         abi: this.hourlyAbi,
         account: this.account,
-        args: [contractId, weekId],
+        args: [contractId],
         functionName: "requestReturn",
       });
       const hash = await this.send(request);
@@ -1431,13 +1431,13 @@ export class MidcontractProtocol {
     }
   }
 
-  async approveReturnHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
+  async approveReturnHourly(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     try {
       const { request } = await this.public.simulateContract({
         address: this.escrow,
         abi: this.hourlyAbi,
         account: this.account,
-        args: [contractId, weekId],
+        args: [contractId],
         functionName: "approveReturn",
       });
       const hash = await this.send(request);
@@ -1508,18 +1508,13 @@ export class MidcontractProtocol {
     }
   }
 
-  async cancelReturnHourly(
-    contractId: bigint,
-    weekId: bigint,
-    status: DepositStatus,
-    waitReceipt = true
-  ): Promise<TransactionId> {
+  async cancelReturnHourly(contractId: bigint, status: DepositStatus, waitReceipt = true): Promise<TransactionId> {
     try {
       const { request } = await this.public.simulateContract({
         address: this.escrow,
         abi: this.hourlyAbi,
         account: this.account,
-        args: [contractId, weekId, status],
+        args: [contractId, status],
         functionName: "cancelReturn",
       });
       const hash = await this.send(request);

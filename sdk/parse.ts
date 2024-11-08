@@ -56,7 +56,6 @@ export interface EscrowWithdrawMilestoneInput extends ContractInput {
 
 export interface EscrowWithdrawHourlyInput extends ContractInput {
   depositId: bigint;
-  escrowWeekId: bigint;
 }
 
 export interface EscrowClaimInput extends ContractInput {
@@ -142,7 +141,6 @@ export interface EscrowCreateReturnRequestMilestoneInput extends ContractInput {
 
 export interface EscrowCreateReturnRequestHourlyInput extends ContractInput {
   depositId: bigint;
-  escrowWeekId: bigint;
 }
 
 export interface EscrowApproveReturnRequestInput extends ContractInput {
@@ -156,7 +154,6 @@ export interface EscrowApproveReturnRequestMilestoneInput extends ContractInput 
 
 export interface EscrowApproveReturnRequestHourlyInput extends ContractInput {
   depositId: bigint;
-  escrowWeekId: bigint;
 }
 
 export interface EscrowCancelReturnRequestInput extends ContractInput {
@@ -172,7 +169,6 @@ export interface EscrowCancelReturnRequestMilestoneInput extends ContractInput {
 
 export interface EscrowCancelReturnRequestHourlyInput extends ContractInput {
   depositId: bigint;
-  escrowWeekId: bigint;
   status: DepositStatus;
 }
 
@@ -515,20 +511,19 @@ export function parseHourlyInput(data: Hex, chainName: ChainNameEnum, isEmbedded
       return {
         functionName: "deposit",
         depositId: inputHourly.args[0],
-        contractor: inputHourly.args[3]?.contractor,
-        tokenAddress: inputHourly.args[1],
+        contractor: inputHourly.args[1]?.contractor,
+        tokenAddress: inputHourly.args[1].paymentToken,
         tokenSymbol: "MockUSDT",
-        amount: Number(formatUnits(inputHourly.args[2], 6)),
-        amountToClaim: Number(formatUnits(inputHourly.args[3].amountToClaim, 6)),
+        amount: Number(formatUnits(inputHourly.args[1].prepaymentAmount, 6)),
+        amountToClaim: Number(formatUnits(inputHourly.args[1].amountToClaim, 6)),
         timeLock: 0n,
-        feeConfig: inputHourly.args[3]?.feeConfig,
+        feeConfig: inputHourly.args[1]?.feeConfig,
         recipientData: "0x0",
       } as EscrowDepositHourlyInput;
     case "withdraw":
       return {
         functionName: "withdraw",
         depositId: inputHourly.args[0],
-        escrowWeekId: inputHourly.args[1],
       } as EscrowWithdrawHourlyInput;
     case "claim":
       return {
@@ -565,20 +560,17 @@ export function parseHourlyInput(data: Hex, chainName: ChainNameEnum, isEmbedded
       return {
         functionName: "requestReturn",
         depositId: inputHourly.args[0],
-        escrowWeekId: inputHourly.args[1],
       } as EscrowCreateReturnRequestHourlyInput;
     case "approveReturn":
       return {
         functionName: "requestReturn",
         depositId: inputHourly.args[0],
-        escrowWeekId: inputHourly.args[1],
       } as EscrowApproveReturnRequestHourlyInput;
     case "cancelReturn":
       return {
         functionName: "cancelReturn",
         depositId: inputHourly.args[0],
-        escrowWeekId: inputHourly.args[1],
-        status: inputHourly.args[2],
+        status: inputHourly.args[1],
       } as EscrowCancelReturnRequestHourlyInput;
     case "createDispute":
       return {

@@ -57,12 +57,17 @@ export class FeeManager {
     };
   }
 
-  async computeClaimableAmountAndFee(amount: bigint, configFee: FeeConfig = 1) {
+  async computeClaimableAmountAndFee(
+    amount: bigint,
+    configFee: FeeConfig = 1,
+    escrowAddress: Address,
+    contractId = 0n
+  ) {
     const result = await this.public.readContract({
       address: this.feeManagerEscrow,
       abi: this.abi,
       account: this.account,
-      args: [this.account.address, amount, configFee],
+      args: [escrowAddress, contractId, this.account.address, amount, configFee],
       functionName: "computeClaimableAmountAndFee",
     });
     return {
@@ -72,17 +77,18 @@ export class FeeManager {
     };
   }
 
-  async getCoverageFee(wallet?: Hash) {
+  async getCoverageFee(escrowAddress: Address, wallet?: Hash, contractId = 0n) {
     const BPS = await this.getBPS();
     let coverageFee;
     if (wallet) {
-      coverageFee = await this.public.readContract({
+      const feeResponse: { coverage: bigint; claim: bigint } = await this.public.readContract({
         address: this.feeManagerEscrow,
         abi: this.abi,
         account: this.account,
-        args: [wallet],
-        functionName: "getCoverageFee",
+        args: [escrowAddress, contractId, wallet],
+        functionName: "getApplicableFees",
       });
+      coverageFee = feeResponse.coverage;
     } else {
       const result = await this.public.readContract({
         address: this.feeManagerEscrow,
@@ -96,17 +102,18 @@ export class FeeManager {
     };
   }
 
-  async getClaimFee(wallet?: Hash) {
+  async getClaimFee(escrowAddress: Address, wallet?: Hash, contractId = 0n) {
     const BPS = await this.getBPS();
     let claimFee;
     if (wallet) {
-      claimFee = await this.public.readContract({
+      const feeResponse: { coverage: bigint; claim: bigint } = await this.public.readContract({
         address: this.feeManagerEscrow,
         abi: this.abi,
         account: this.account,
-        args: [wallet],
-        functionName: "getClaimFee",
+        args: [escrowAddress, contractId, wallet],
+        functionName: "getApplicableFees",
       });
+      claimFee = feeResponse.claim;
     } else {
       const result = await this.public.readContract({
         address: this.feeManagerEscrow,

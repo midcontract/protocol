@@ -152,7 +152,7 @@ interface AbiList {
 
 export class MidcontractProtocol {
   private readonly contractList: ContractList;
-  private escrow: Address = "0x0";
+  private escrow: Address = "0x0000000000000000000000000000000000000000";
   private wallet: WalletClient;
   private public: PublicClient;
   public readonly blockExplorer: string;
@@ -340,7 +340,8 @@ export class MidcontractProtocol {
     );
     const { claimableAmount, feeDeducted, clientFee } = await feeManager.computeClaimableAmountAndFee(
       convertedAmount,
-      feeConfig
+      feeConfig,
+      this.escrow
     );
 
     return {
@@ -358,7 +359,7 @@ export class MidcontractProtocol {
       this.feeManagerEscrow,
       this.feeManagerAbi
     );
-    const { coverageFee } = await feeManager.getCoverageFee(wallet);
+    const { coverageFee } = await feeManager.getCoverageFee(this.escrow, wallet);
 
     return Number(coverageFee);
   }
@@ -371,7 +372,7 @@ export class MidcontractProtocol {
       this.feeManagerEscrow,
       this.feeManagerAbi
     );
-    const { claimFee } = await feeManager.getClaimFee(wallet);
+    const { claimFee } = await feeManager.getClaimFee(this.escrow, wallet);
 
     return Number(claimFee);
   }

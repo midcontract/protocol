@@ -312,7 +312,11 @@ export class MidcontractProtocol {
       this.feeManagerEscrow,
       this.feeManagerAbi
     );
-    const { totalDepositAmount, feeApplied } = await feeManager.computeDepositAmountAndFee(convertedAmount, feeConfig);
+    const { totalDepositAmount, feeApplied } = await feeManager.computeDepositAmountAndFee(
+      convertedAmount,
+      feeConfig,
+      this.escrow
+    );
 
     return {
       totalDepositAmount: Number(totalDepositAmount) / Math.pow(10, tokenData.decimals),
@@ -460,17 +464,17 @@ export class MidcontractProtocol {
     });
 
     for (const token of this.tokenList) {
-      if (token.address == contractDetails[0]) {
+      if (token.address == contractDetails[1]) {
         return new Deposit([
-          data[0],
+          contractDetails[0],
           token.symbol,
-          Number(formatUnits(contractDetails[1], token.decimals)),
-          Number(formatUnits(data[1], token.decimals)),
-          Number(formatUnits(data[2], token.decimals)),
+          Number(formatUnits(contractDetails[2], token.decimals)),
+          Number(formatUnits(data[0], token.decimals)),
+          Number(formatUnits(contractDetails[3], token.decimals)),
           0n,
           "0x0",
-          data[3],
-          contractDetails[2],
+          contractDetails[4],
+          contractDetails[5],
         ]);
       }
     }
@@ -755,10 +759,10 @@ export class MidcontractProtocol {
 
     const depositPayload = {
       contractor: deposit.contractorAddress,
+      paymentToken: token.address,
+      prepaymentAmount: parsedPrepaymentAmount,
       amountToClaim: parseUnits(String(deposit.amountToClaim || 0), token.decimals),
-      amountToWithdraw: parseUnits(String(deposit.amountToWithdraw || 0), token.decimals),
       feeConfig: deposit.feeConfig,
-      weekStatus: DepositStatus.NONE,
     };
 
     await this.tokenRequireBalance(account.address, totalDepositAmount, tokenSymbol);
@@ -769,7 +773,7 @@ export class MidcontractProtocol {
         address: this.escrow,
         abi: this.hourlyAbi,
         account,
-        args: [escrowContractId, token.address, parsedPrepaymentAmount, depositPayload],
+        args: [escrowContractId, depositPayload],
         functionName: "deposit",
       });
       const hash = await this.send({ ...data.request });

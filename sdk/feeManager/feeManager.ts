@@ -43,12 +43,12 @@ export class FeeManager {
     await this.send(request);
   }
 
-  async computeDepositAmountAndFee(amount: bigint, configFee: FeeConfig = 1) {
+  async computeDepositAmountAndFee(amount: bigint, configFee: FeeConfig = 1, escrowAddress: Address, contractId = 0n) {
     const result = await this.public.readContract({
       address: this.feeManagerEscrow,
       abi: this.abi,
       account: this.account,
-      args: [this.account.address, amount, configFee],
+      args: [escrowAddress, contractId, this.account.address, amount, configFee],
       functionName: "computeDepositAmountAndFee",
     });
     return {

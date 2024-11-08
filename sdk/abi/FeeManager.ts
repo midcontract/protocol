@@ -15,10 +15,46 @@ export const feeManagerAbiTest = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "coverage", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "claim", type: "uint256" },
+      { indexed: true, internalType: "address", name: "instance", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+    ],
+    name: "ContractSpecificFeesReset",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "instance", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: false, internalType: "uint16", name: "coverage", type: "uint16" },
+      { indexed: false, internalType: "uint16", name: "claim", type: "uint16" },
+    ],
+    name: "ContractSpecificFeesSet",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: false, internalType: "uint16", name: "coverage", type: "uint16" },
+      { indexed: false, internalType: "uint16", name: "claim", type: "uint16" },
     ],
     name: "DefaultFeesSet",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "instance", type: "address" },
+      { indexed: false, internalType: "uint16", name: "coverage", type: "uint16" },
+      { indexed: false, internalType: "uint16", name: "claim", type: "uint16" },
+    ],
+    name: "InstanceFeesSet",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [{ indexed: true, internalType: "address", name: "instance", type: "address" }],
+    name: "InstanceSpecificFeesReset",
     type: "event",
   },
   {
@@ -41,12 +77,18 @@ export const feeManagerAbiTest = [
   },
   {
     anonymous: false,
+    inputs: [{ indexed: true, internalType: "address", name: "user", type: "address" }],
+    name: "UserSpecificFeesReset",
+    type: "event",
+  },
+  {
+    anonymous: false,
     inputs: [
-      { indexed: false, internalType: "address", name: "user", type: "address" },
-      { indexed: false, internalType: "uint256", name: "coverage", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "claim", type: "uint256" },
+      { indexed: true, internalType: "address", name: "user", type: "address" },
+      { indexed: false, internalType: "uint16", name: "coverage", type: "uint16" },
+      { indexed: false, internalType: "uint16", name: "claim", type: "uint16" },
     ],
-    name: "SpecialFeesSet",
+    name: "UserSpecificFeesSet",
     type: "event",
   },
   {
@@ -58,6 +100,8 @@ export const feeManagerAbiTest = [
   },
   {
     inputs: [
+      { internalType: "address", name: "_instance", type: "address" },
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
       { internalType: "address", name: "_contractor", type: "address" },
       { internalType: "uint256", name: "_claimedAmount", type: "uint256" },
       { internalType: "enum Enums.FeeConfig", name: "_feeConfig", type: "uint8" },
@@ -73,6 +117,8 @@ export const feeManagerAbiTest = [
   },
   {
     inputs: [
+      { internalType: "address", name: "_instance", type: "address" },
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
       { internalType: "address", name: "_client", type: "address" },
       { internalType: "uint256", name: "_depositAmount", type: "uint256" },
       { internalType: "enum Enums.FeeConfig", name: "_feeConfig", type: "uint8" },
@@ -87,6 +133,19 @@ export const feeManagerAbiTest = [
   },
   { inputs: [], name: "confirmOwner", outputs: [], stateMutability: "payable", type: "function" },
   {
+    inputs: [
+      { internalType: "address", name: "instance", type: "address" },
+      { internalType: "uint256", name: "contractId", type: "uint256" },
+    ],
+    name: "contractSpecificFees",
+    outputs: [
+      { internalType: "uint16", name: "coverage", type: "uint16" },
+      { internalType: "uint16", name: "claim", type: "uint16" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "defaultFees",
     outputs: [
@@ -97,16 +156,33 @@ export const feeManagerAbiTest = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "address", name: "_user", type: "address" }],
-    name: "getClaimFee",
-    outputs: [{ internalType: "uint16", name: "", type: "uint16" }],
+    inputs: [
+      { internalType: "address", name: "_instance", type: "address" },
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
+      { internalType: "address", name: "_user", type: "address" },
+    ],
+    name: "getApplicableFees",
+    outputs: [
+      {
+        components: [
+          { internalType: "uint16", name: "coverage", type: "uint16" },
+          { internalType: "uint16", name: "claim", type: "uint16" },
+        ],
+        internalType: "struct IEscrowFeeManager.FeeRates",
+        name: "",
+        type: "tuple",
+      },
+    ],
     stateMutability: "view",
     type: "function",
   },
   {
-    inputs: [{ internalType: "address", name: "_user", type: "address" }],
-    name: "getCoverageFee",
-    outputs: [{ internalType: "uint16", name: "", type: "uint16" }],
+    inputs: [{ internalType: "address", name: "instance", type: "address" }],
+    name: "instanceFees",
+    outputs: [
+      { internalType: "uint16", name: "coverage", type: "uint16" },
+      { internalType: "uint16", name: "claim", type: "uint16" },
+    ],
     stateMutability: "view",
     type: "function",
   },
@@ -120,23 +196,81 @@ export const feeManagerAbiTest = [
   { inputs: [], name: "renounceOwner", outputs: [], stateMutability: "payable", type: "function" },
   {
     inputs: [
+      { internalType: "address", name: "_instance", type: "address" },
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
       { internalType: "address", name: "_user", type: "address" },
-      { internalType: "uint16", name: "_coverage", type: "uint16" },
-      { internalType: "uint16", name: "_claim", type: "uint16" },
     ],
-    name: "setSpecialFees",
+    name: "resetAllToDefault",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
   },
   {
-    inputs: [{ internalType: "address", name: "user", type: "address" }],
-    name: "specialFees",
-    outputs: [
-      { internalType: "uint16", name: "coverage", type: "uint16" },
-      { internalType: "uint16", name: "claim", type: "uint16" },
+    inputs: [
+      { internalType: "address", name: "_instance", type: "address" },
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
     ],
-    stateMutability: "view",
+    name: "resetContractSpecificFees",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "_instance", type: "address" }],
+    name: "resetInstanceSpecificFees",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "_user", type: "address" }],
+    name: "resetUserSpecificFees",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "_instance", type: "address" },
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
+      { internalType: "uint16", name: "_coverage", type: "uint16" },
+      { internalType: "uint16", name: "_claim", type: "uint16" },
+    ],
+    name: "setContractSpecificFees",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint16", name: "_coverage", type: "uint16" },
+      { internalType: "uint16", name: "_claim", type: "uint16" },
+    ],
+    name: "setDefaultFees",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "_instance", type: "address" },
+      { internalType: "uint16", name: "_coverage", type: "uint16" },
+      { internalType: "uint16", name: "_claim", type: "uint16" },
+    ],
+    name: "setInstanceFees",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "_user", type: "address" },
+      { internalType: "uint16", name: "_coverage", type: "uint16" },
+      { internalType: "uint16", name: "_claim", type: "uint16" },
+    ],
+    name: "setUserSpecificFees",
+    outputs: [],
+    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -147,13 +281,13 @@ export const feeManagerAbiTest = [
     type: "function",
   },
   {
-    inputs: [
-      { internalType: "uint16", name: "_coverage", type: "uint16" },
-      { internalType: "uint16", name: "_claim", type: "uint16" },
+    inputs: [{ internalType: "address", name: "user", type: "address" }],
+    name: "userSpecificFees",
+    outputs: [
+      { internalType: "uint16", name: "coverage", type: "uint16" },
+      { internalType: "uint16", name: "claim", type: "uint16" },
     ],
-    name: "updateDefaultFees",
-    outputs: [],
-    stateMutability: "nonpayable",
+    stateMutability: "view",
     type: "function",
   },
 ] as const;
@@ -175,10 +309,46 @@ export const feeManagerAbiBeta = [
   {
     anonymous: false,
     inputs: [
-      { indexed: false, internalType: "uint256", name: "coverage", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "claim", type: "uint256" },
+      { indexed: true, internalType: "address", name: "instance", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+    ],
+    name: "ContractSpecificFeesReset",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "instance", type: "address" },
+      { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: false, internalType: "uint16", name: "coverage", type: "uint16" },
+      { indexed: false, internalType: "uint16", name: "claim", type: "uint16" },
+    ],
+    name: "ContractSpecificFeesSet",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: false, internalType: "uint16", name: "coverage", type: "uint16" },
+      { indexed: false, internalType: "uint16", name: "claim", type: "uint16" },
     ],
     name: "DefaultFeesSet",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: "address", name: "instance", type: "address" },
+      { indexed: false, internalType: "uint16", name: "coverage", type: "uint16" },
+      { indexed: false, internalType: "uint16", name: "claim", type: "uint16" },
+    ],
+    name: "InstanceFeesSet",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [{ indexed: true, internalType: "address", name: "instance", type: "address" }],
+    name: "InstanceSpecificFeesReset",
     type: "event",
   },
   {
@@ -201,12 +371,18 @@ export const feeManagerAbiBeta = [
   },
   {
     anonymous: false,
+    inputs: [{ indexed: true, internalType: "address", name: "user", type: "address" }],
+    name: "UserSpecificFeesReset",
+    type: "event",
+  },
+  {
+    anonymous: false,
     inputs: [
-      { indexed: false, internalType: "address", name: "user", type: "address" },
-      { indexed: false, internalType: "uint256", name: "coverage", type: "uint256" },
-      { indexed: false, internalType: "uint256", name: "claim", type: "uint256" },
+      { indexed: true, internalType: "address", name: "user", type: "address" },
+      { indexed: false, internalType: "uint16", name: "coverage", type: "uint16" },
+      { indexed: false, internalType: "uint16", name: "claim", type: "uint16" },
     ],
-    name: "SpecialFeesSet",
+    name: "UserSpecificFeesSet",
     type: "event",
   },
   {
@@ -218,6 +394,8 @@ export const feeManagerAbiBeta = [
   },
   {
     inputs: [
+      { internalType: "address", name: "_instance", type: "address" },
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
       { internalType: "address", name: "_contractor", type: "address" },
       { internalType: "uint256", name: "_claimedAmount", type: "uint256" },
       { internalType: "enum Enums.FeeConfig", name: "_feeConfig", type: "uint8" },
@@ -233,6 +411,8 @@ export const feeManagerAbiBeta = [
   },
   {
     inputs: [
+      { internalType: "address", name: "_instance", type: "address" },
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
       { internalType: "address", name: "_client", type: "address" },
       { internalType: "uint256", name: "_depositAmount", type: "uint256" },
       { internalType: "enum Enums.FeeConfig", name: "_feeConfig", type: "uint8" },
@@ -247,6 +427,19 @@ export const feeManagerAbiBeta = [
   },
   { inputs: [], name: "confirmOwner", outputs: [], stateMutability: "payable", type: "function" },
   {
+    inputs: [
+      { internalType: "address", name: "instance", type: "address" },
+      { internalType: "uint256", name: "contractId", type: "uint256" },
+    ],
+    name: "contractSpecificFees",
+    outputs: [
+      { internalType: "uint16", name: "coverage", type: "uint16" },
+      { internalType: "uint16", name: "claim", type: "uint16" },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "defaultFees",
     outputs: [
@@ -257,16 +450,33 @@ export const feeManagerAbiBeta = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "address", name: "_user", type: "address" }],
-    name: "getClaimFee",
-    outputs: [{ internalType: "uint16", name: "", type: "uint16" }],
+    inputs: [
+      { internalType: "address", name: "_instance", type: "address" },
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
+      { internalType: "address", name: "_user", type: "address" },
+    ],
+    name: "getApplicableFees",
+    outputs: [
+      {
+        components: [
+          { internalType: "uint16", name: "coverage", type: "uint16" },
+          { internalType: "uint16", name: "claim", type: "uint16" },
+        ],
+        internalType: "struct IEscrowFeeManager.FeeRates",
+        name: "",
+        type: "tuple",
+      },
+    ],
     stateMutability: "view",
     type: "function",
   },
   {
-    inputs: [{ internalType: "address", name: "_user", type: "address" }],
-    name: "getCoverageFee",
-    outputs: [{ internalType: "uint16", name: "", type: "uint16" }],
+    inputs: [{ internalType: "address", name: "instance", type: "address" }],
+    name: "instanceFees",
+    outputs: [
+      { internalType: "uint16", name: "coverage", type: "uint16" },
+      { internalType: "uint16", name: "claim", type: "uint16" },
+    ],
     stateMutability: "view",
     type: "function",
   },
@@ -280,23 +490,81 @@ export const feeManagerAbiBeta = [
   { inputs: [], name: "renounceOwner", outputs: [], stateMutability: "payable", type: "function" },
   {
     inputs: [
+      { internalType: "address", name: "_instance", type: "address" },
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
       { internalType: "address", name: "_user", type: "address" },
-      { internalType: "uint16", name: "_coverage", type: "uint16" },
-      { internalType: "uint16", name: "_claim", type: "uint16" },
     ],
-    name: "setSpecialFees",
+    name: "resetAllToDefault",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",
   },
   {
-    inputs: [{ internalType: "address", name: "user", type: "address" }],
-    name: "specialFees",
-    outputs: [
-      { internalType: "uint16", name: "coverage", type: "uint16" },
-      { internalType: "uint16", name: "claim", type: "uint16" },
+    inputs: [
+      { internalType: "address", name: "_instance", type: "address" },
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
     ],
-    stateMutability: "view",
+    name: "resetContractSpecificFees",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "_instance", type: "address" }],
+    name: "resetInstanceSpecificFees",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "_user", type: "address" }],
+    name: "resetUserSpecificFees",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "_instance", type: "address" },
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
+      { internalType: "uint16", name: "_coverage", type: "uint16" },
+      { internalType: "uint16", name: "_claim", type: "uint16" },
+    ],
+    name: "setContractSpecificFees",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint16", name: "_coverage", type: "uint16" },
+      { internalType: "uint16", name: "_claim", type: "uint16" },
+    ],
+    name: "setDefaultFees",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "_instance", type: "address" },
+      { internalType: "uint16", name: "_coverage", type: "uint16" },
+      { internalType: "uint16", name: "_claim", type: "uint16" },
+    ],
+    name: "setInstanceFees",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "address", name: "_user", type: "address" },
+      { internalType: "uint16", name: "_coverage", type: "uint16" },
+      { internalType: "uint16", name: "_claim", type: "uint16" },
+    ],
+    name: "setUserSpecificFees",
+    outputs: [],
+    stateMutability: "nonpayable",
     type: "function",
   },
   {
@@ -307,13 +575,13 @@ export const feeManagerAbiBeta = [
     type: "function",
   },
   {
-    inputs: [
-      { internalType: "uint16", name: "_coverage", type: "uint16" },
-      { internalType: "uint16", name: "_claim", type: "uint16" },
+    inputs: [{ internalType: "address", name: "user", type: "address" }],
+    name: "userSpecificFees",
+    outputs: [
+      { internalType: "uint16", name: "coverage", type: "uint16" },
+      { internalType: "uint16", name: "claim", type: "uint16" },
     ],
-    name: "updateDefaultFees",
-    outputs: [],
-    stateMutability: "nonpayable",
+    stateMutability: "view",
     type: "function",
   },
 ] as const;

@@ -1,6 +1,7 @@
 export const fixedPriceAbiTest = [
   { inputs: [], name: "Escrow__AlreadyInitialized", type: "error" },
   { inputs: [], name: "Escrow__BlacklistedAccount", type: "error" },
+  { inputs: [], name: "Escrow__ContractorMismatch", type: "error" },
   { inputs: [], name: "Escrow__CreateDisputeNotAllowed", type: "error" },
   { inputs: [], name: "Escrow__DisputeNotActiveForThisDeposit", type: "error" },
   { inputs: [], name: "Escrow__FeeTooHigh", type: "error" },
@@ -55,8 +56,8 @@ export const fixedPriceAbiTest = [
     inputs: [
       { indexed: true, internalType: "address", name: "contractor", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: false, internalType: "address", name: "paymentToken", type: "address" },
       { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "feeAmount", type: "uint256" },
     ],
     name: "Claimed",
     type: "event",
@@ -83,11 +84,10 @@ export const fixedPriceAbiTest = [
   {
     anonymous: false,
     inputs: [
-      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "address", name: "depositor", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: false, internalType: "address", name: "paymentToken", type: "address" },
-      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
-      { indexed: false, internalType: "enum Enums.FeeConfig", name: "feeConfig", type: "uint8" },
+      { indexed: false, internalType: "uint256", name: "totalDepositAmount", type: "uint256" },
+      { indexed: true, internalType: "address", name: "contractor", type: "address" },
     ],
     name: "Deposited",
     type: "event",
@@ -170,8 +170,8 @@ export const fixedPriceAbiTest = [
     inputs: [
       { indexed: true, internalType: "address", name: "withdrawer", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: false, internalType: "address", name: "paymentToken", type: "address" },
       { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "feeAmount", type: "uint256" },
     ],
     name: "Withdrawn",
     type: "event",
@@ -406,6 +406,7 @@ export const fixedPriceAbiTest = [
 export const fixedPriceAbiBeta = [
   { inputs: [], name: "Escrow__AlreadyInitialized", type: "error" },
   { inputs: [], name: "Escrow__BlacklistedAccount", type: "error" },
+  { inputs: [], name: "Escrow__ContractorMismatch", type: "error" },
   { inputs: [], name: "Escrow__CreateDisputeNotAllowed", type: "error" },
   { inputs: [], name: "Escrow__DisputeNotActiveForThisDeposit", type: "error" },
   { inputs: [], name: "Escrow__FeeTooHigh", type: "error" },
@@ -460,8 +461,8 @@ export const fixedPriceAbiBeta = [
     inputs: [
       { indexed: true, internalType: "address", name: "contractor", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: false, internalType: "address", name: "paymentToken", type: "address" },
       { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "feeAmount", type: "uint256" },
     ],
     name: "Claimed",
     type: "event",
@@ -488,11 +489,10 @@ export const fixedPriceAbiBeta = [
   {
     anonymous: false,
     inputs: [
-      { indexed: true, internalType: "address", name: "sender", type: "address" },
+      { indexed: true, internalType: "address", name: "depositor", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: false, internalType: "address", name: "paymentToken", type: "address" },
-      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
-      { indexed: false, internalType: "enum Enums.FeeConfig", name: "feeConfig", type: "uint8" },
+      { indexed: false, internalType: "uint256", name: "totalDepositAmount", type: "uint256" },
+      { indexed: true, internalType: "address", name: "contractor", type: "address" },
     ],
     name: "Deposited",
     type: "event",
@@ -575,8 +575,8 @@ export const fixedPriceAbiBeta = [
     inputs: [
       { indexed: true, internalType: "address", name: "withdrawer", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: false, internalType: "address", name: "paymentToken", type: "address" },
       { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "feeAmount", type: "uint256" },
     ],
     name: "Withdrawn",
     type: "event",

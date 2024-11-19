@@ -1288,13 +1288,13 @@ export class MidcontractProtocol {
     }
   }
 
-  async escrowWithdrawHourly(contractId: bigint, weekId: bigint, waitReceipt = true): Promise<TransactionId> {
+  async escrowWithdrawHourly(contractId: bigint, waitReceipt = true): Promise<TransactionId> {
     try {
       const { request } = await this.public.simulateContract({
         address: this.escrow,
         abi: this.hourlyAbi,
         account: this.account,
-        args: [contractId, weekId],
+        args: [contractId],
         functionName: "withdraw",
       });
       const hash = await this.send(request);

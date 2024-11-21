@@ -351,7 +351,7 @@ export class MidcontractProtocol {
     };
   }
 
-  async getCoverageFee(wallet?: Hash): Promise<number> {
+  async getCoverageFee(wallet?: Hash, contractId?: bigint): Promise<number> {
     const feeManager = new FeeManager(
       this.wallet,
       this.public,
@@ -359,12 +359,12 @@ export class MidcontractProtocol {
       this.feeManagerEscrow,
       this.feeManagerAbi
     );
-    const { coverageFee } = await feeManager.getCoverageFee(this.escrow, wallet);
+    const { coverageFee } = await feeManager.getCoverageFee(this.escrow, wallet, contractId);
 
     return Number(coverageFee);
   }
 
-  async getClaimFee(wallet?: Hash): Promise<number> {
+  async getClaimFee(wallet?: Hash, contractId?: bigint): Promise<number> {
     const feeManager = new FeeManager(
       this.wallet,
       this.public,
@@ -372,7 +372,7 @@ export class MidcontractProtocol {
       this.feeManagerEscrow,
       this.feeManagerAbi
     );
-    const { claimFee } = await feeManager.getClaimFee(this.escrow, wallet);
+    const { claimFee } = await feeManager.getClaimFee(this.escrow, wallet, contractId);
 
     return Number(claimFee);
   }
@@ -1849,7 +1849,34 @@ export class MidcontractProtocol {
       this.feeManagerEscrow,
       this.feeManagerAbi
     );
-    await feeManager.setSpecialFees(accountAddress, coverageFee, claimFee);
+    await feeManager.setUserSpecificFees(accountAddress, coverageFee, claimFee);
+  }
+
+  async setContractSpecificFees(
+    accountAddress: Address,
+    contractId: bigint,
+    coverageFee: number,
+    claimFee: number
+  ): Promise<void> {
+    const feeManager = new FeeManager(
+      this.wallet,
+      this.public,
+      this.account,
+      this.feeManagerEscrow,
+      this.feeManagerAbi
+    );
+    await feeManager.setContractSpecificFees(accountAddress, contractId, coverageFee, claimFee);
+  }
+
+  async setInstanceFees(accountAddress: Address, coverageFee: number, claimFee: number): Promise<void> {
+    const feeManager = new FeeManager(
+      this.wallet,
+      this.public,
+      this.account,
+      this.feeManagerEscrow,
+      this.feeManagerAbi
+    );
+    await feeManager.setInstanceFees(accountAddress, coverageFee, claimFee);
   }
 
   async transactionByHashWait(hash: Hash): Promise<TransactionData> {

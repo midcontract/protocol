@@ -32,13 +32,43 @@ export class FeeManager {
     await this.send(request);
   }
 
-  async setSpecialFees(accountAddress: Address, coverageFee: number, claimFee: number): Promise<void> {
+  async setUserSpecificFees(accountAddress: Address, coverageFee: number, claimFee: number): Promise<void> {
+    const BPS = await this.getBPS();
     const { request } = await this.public.simulateContract({
       address: this.feeManagerEscrow,
       abi: this.abi,
       account: this.account,
-      args: [accountAddress, coverageFee, claimFee],
-      functionName: "setSpecialFees",
+      args: [accountAddress, coverageFee * BPS, claimFee * BPS],
+      functionName: "setUserSpecificFees",
+    });
+    await this.send(request);
+  }
+
+  async setContractSpecificFees(
+    escrowAddress: Address,
+    contractId: bigint,
+    coverageFee: number,
+    claimFee: number
+  ): Promise<void> {
+    const BPS = await this.getBPS();
+    const { request } = await this.public.simulateContract({
+      address: this.feeManagerEscrow,
+      abi: this.abi,
+      account: this.account,
+      args: [escrowAddress, contractId, coverageFee * BPS, claimFee * BPS],
+      functionName: "setContractSpecificFees",
+    });
+    await this.send(request);
+  }
+
+  async setInstanceFees(escrowAddress: Address, coverageFee: number, claimFee: number): Promise<void> {
+    const BPS = await this.getBPS();
+    const { request } = await this.public.simulateContract({
+      address: this.feeManagerEscrow,
+      abi: this.abi,
+      account: this.account,
+      args: [escrowAddress, coverageFee * BPS, claimFee * BPS],
+      functionName: "setInstanceFees",
     });
     await this.send(request);
   }

@@ -9,7 +9,7 @@ import { feeManagerAbiTest } from "@/abi/FeeManager";
 
 export type Environment = "prod" | "beta" | "beta2" | "test" | "local";
 
-export type SymbolToken = "USDT" | "USDC" | "MockUSDT" | "MockDAI";
+export type SymbolToken = "USDT" | "USDC" | "MockUSDT" | "MockDAI" | "MockUSDC";
 
 export type DataToken = {
   symbol: SymbolToken;
@@ -106,6 +106,11 @@ export const environmentList: EnvironmentList = {
           address: "0xA0A8Ee7bF502EC4Eb5C670fE5c63092950dbB718",
           decimals: 18,
         },
+        MockUSDC: {
+          symbol: "MockUSDC",
+          address: "0x2AFf4E62eC8A5798798a481258DE66d88fB6bbCb",
+          decimals: 6,
+        },
       },
     },
   },
@@ -164,6 +169,11 @@ export const environmentList: EnvironmentList = {
           symbol: "MockDAI",
           address: "0xA0A8Ee7bF502EC4Eb5C670fE5c63092950dbB718",
           decimals: 18,
+        },
+        MockUSDC: {
+          symbol: "MockUSDC",
+          address: "0x2AFf4E62eC8A5798798a481258DE66d88fB6bbCb",
+          decimals: 6,
         },
       },
     },

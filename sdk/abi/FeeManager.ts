@@ -1,17 +1,17 @@
 export const feeManagerAbiTest = [
   {
     inputs: [
+      { internalType: "address", name: "_adminManager", type: "address" },
       { internalType: "uint16", name: "_coverage", type: "uint16" },
       { internalType: "uint16", name: "_claim", type: "uint16" },
-      { internalType: "address", name: "_owner", type: "address" },
     ],
     stateMutability: "nonpayable",
     type: "constructor",
   },
-  { inputs: [], name: "EscrowFeeManager__FeeTooHigh", type: "error" },
-  { inputs: [], name: "EscrowFeeManager__UnsupportedFeeConfiguration", type: "error" },
-  { inputs: [], name: "EscrowFeeManager__ZeroAddressProvided", type: "error" },
-  { inputs: [], name: "Unauthorized", type: "error" },
+  { inputs: [], name: "FeeTooHigh", type: "error" },
+  { inputs: [], name: "UnauthorizedAccount", type: "error" },
+  { inputs: [], name: "UnsupportedFeeConfiguration", type: "error" },
+  { inputs: [], name: "ZeroAddressProvided", type: "error" },
   {
     anonymous: false,
     inputs: [
@@ -59,24 +59,6 @@ export const feeManagerAbiTest = [
   },
   {
     anonymous: false,
-    inputs: [
-      { indexed: true, internalType: "address", name: "user", type: "address" },
-      { indexed: true, internalType: "address", name: "ownerCandidate", type: "address" },
-    ],
-    name: "OwnerUpdateInitiated",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [
-      { indexed: true, internalType: "address", name: "user", type: "address" },
-      { indexed: true, internalType: "address", name: "newOwner", type: "address" },
-    ],
-    name: "OwnershipTransferred",
-    type: "event",
-  },
-  {
-    anonymous: false,
     inputs: [{ indexed: true, internalType: "address", name: "user", type: "address" }],
     name: "UserSpecificFeesReset",
     type: "event",
@@ -95,6 +77,20 @@ export const feeManagerAbiTest = [
     inputs: [],
     name: "MAX_BPS",
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "MAX_FEE_BPS",
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "adminManager",
+    outputs: [{ internalType: "contract IEscrowAdminManager", name: "", type: "address" }],
     stateMutability: "view",
     type: "function",
   },
@@ -131,7 +127,6 @@ export const feeManagerAbiTest = [
     stateMutability: "view",
     type: "function",
   },
-  { inputs: [], name: "confirmOwner", outputs: [], stateMutability: "payable", type: "function" },
   {
     inputs: [
       { internalType: "address", name: "instance", type: "address" },
@@ -186,14 +181,6 @@ export const feeManagerAbiTest = [
     stateMutability: "view",
     type: "function",
   },
-  {
-    inputs: [],
-    name: "owner",
-    outputs: [{ internalType: "address", name: "", type: "address" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  { inputs: [], name: "renounceOwner", outputs: [], stateMutability: "payable", type: "function" },
   {
     inputs: [
       { internalType: "address", name: "_instance", type: "address" },
@@ -271,13 +258,6 @@ export const feeManagerAbiTest = [
     name: "setUserSpecificFees",
     outputs: [],
     stateMutability: "nonpayable",
-    type: "function",
-  },
-  {
-    inputs: [{ internalType: "address", name: "newOwner", type: "address" }],
-    name: "transferOwnership",
-    outputs: [],
-    stateMutability: "payable",
     type: "function",
   },
   {

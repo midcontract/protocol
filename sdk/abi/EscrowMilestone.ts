@@ -1,6 +1,8 @@
 export const milestoneAbiTest = [
   { inputs: [], name: "Escrow__AlreadyInitialized", type: "error" },
+  { inputs: [], name: "Escrow__AuthorizationExpired", type: "error" },
   { inputs: [], name: "Escrow__BlacklistedAccount", type: "error" },
+  { inputs: [], name: "Escrow__ContractIdAlreadyExists", type: "error" },
   { inputs: [], name: "Escrow__ContractorMismatch", type: "error" },
   { inputs: [], name: "Escrow__CreateDisputeNotAllowed", type: "error" },
   { inputs: [], name: "Escrow__DisputeNotActiveForThisDeposit", type: "error" },
@@ -11,7 +13,9 @@ export const milestoneAbiTest = [
   { inputs: [], name: "Escrow__InvalidFeeConfig", type: "error" },
   { inputs: [], name: "Escrow__InvalidMilestoneId", type: "error" },
   { inputs: [], name: "Escrow__InvalidMilestoneLimit", type: "error" },
+  { inputs: [], name: "Escrow__InvalidMilestonesHash", type: "error" },
   { inputs: [], name: "Escrow__InvalidRange", type: "error" },
+  { inputs: [], name: "Escrow__InvalidSignature", type: "error" },
   { inputs: [], name: "Escrow__InvalidStatusForApprove", type: "error" },
   { inputs: [], name: "Escrow__InvalidStatusForSubmit", type: "error" },
   { inputs: [], name: "Escrow__InvalidStatusProvided", type: "error" },
@@ -26,6 +30,7 @@ export const milestoneAbiTest = [
   { inputs: [], name: "Escrow__NotSetFeeManager", type: "error" },
   { inputs: [], name: "Escrow__NotSupportedPaymentToken", type: "error" },
   { inputs: [], name: "Escrow__OutOfRange", type: "error" },
+  { inputs: [], name: "Escrow__PaymentTokenMismatch", type: "error" },
   { inputs: [], name: "Escrow__ResolutionExceedsDepositedAmount", type: "error" },
   { inputs: [], name: "Escrow__ReturnNotAllowed", type: "error" },
   { inputs: [], name: "Escrow__TooManyMilestones", type: "error" },
@@ -67,6 +72,7 @@ export const milestoneAbiTest = [
       { indexed: false, internalType: "uint256", name: "totalClaimedAmount", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "totalFeeAmount", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "totalClientFee", type: "uint256" },
+      { indexed: true, internalType: "address", name: "client", type: "address" },
     ],
     name: "BulkClaimed",
     type: "event",
@@ -76,9 +82,10 @@ export const milestoneAbiTest = [
     inputs: [
       { indexed: true, internalType: "address", name: "contractor", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "milestoneId", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "feeAmount", type: "uint256" },
+      { indexed: true, internalType: "address", name: "client", type: "address" },
     ],
     name: "Claimed",
     type: "event",
@@ -120,7 +127,8 @@ export const milestoneAbiTest = [
     inputs: [
       { indexed: true, internalType: "address", name: "sender", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "milestoneId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "client", type: "address" },
     ],
     name: "DisputeCreated",
     type: "event",
@@ -130,10 +138,11 @@ export const milestoneAbiTest = [
     inputs: [
       { indexed: true, internalType: "address", name: "approver", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "milestoneId", type: "uint256" },
       { indexed: false, internalType: "enum Enums.Winner", name: "winner", type: "uint8" },
       { indexed: false, internalType: "uint256", name: "clientAmount", type: "uint256" },
       { indexed: false, internalType: "uint256", name: "contractorAmount", type: "uint256" },
+      { indexed: true, internalType: "address", name: "client", type: "address" },
     ],
     name: "DisputeResolved",
     type: "event",
@@ -166,7 +175,8 @@ export const milestoneAbiTest = [
     inputs: [
       { indexed: true, internalType: "address", name: "approver", type: "address" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
-      { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "milestoneId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "client", type: "address" },
     ],
     name: "ReturnApproved",
     type: "event",
@@ -195,8 +205,9 @@ export const milestoneAbiTest = [
     anonymous: false,
     inputs: [
       { indexed: true, internalType: "address", name: "sender", type: "address" },
-      { indexed: true, internalType: "uint256", name: "milestoneId", type: "uint256" },
       { indexed: true, internalType: "uint256", name: "contractId", type: "uint256" },
+      { indexed: false, internalType: "uint256", name: "milestoneId", type: "uint256" },
+      { indexed: true, internalType: "address", name: "client", type: "address" },
     ],
     name: "Submitted",
     type: "event",
@@ -246,7 +257,6 @@ export const milestoneAbiTest = [
     inputs: [
       { internalType: "uint256", name: "_contractId", type: "uint256" },
       { internalType: "uint256", name: "_milestoneId", type: "uint256" },
-      { internalType: "enum Enums.Status", name: "_status", type: "uint8" },
     ],
     name: "cancelReturn",
     outputs: [],
@@ -282,6 +292,13 @@ export const milestoneAbiTest = [
     type: "function",
   },
   {
+    inputs: [{ internalType: "uint256", name: "_contractId", type: "uint256" }],
+    name: "contractExists",
+    outputs: [{ internalType: "bool", name: "", type: "bool" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [
       { internalType: "uint256", name: "contractId", type: "uint256" },
       { internalType: "uint256", name: "", type: "uint256" },
@@ -311,8 +328,19 @@ export const milestoneAbiTest = [
   },
   {
     inputs: [
-      { internalType: "uint256", name: "_contractId", type: "uint256" },
-      { internalType: "address", name: "_paymentToken", type: "address" },
+      {
+        components: [
+          { internalType: "uint256", name: "contractId", type: "uint256" },
+          { internalType: "address", name: "paymentToken", type: "address" },
+          { internalType: "bytes32", name: "milestonesHash", type: "bytes32" },
+          { internalType: "address", name: "escrow", type: "address" },
+          { internalType: "uint256", name: "expiration", type: "uint256" },
+          { internalType: "bytes", name: "signature", type: "bytes" },
+        ],
+        internalType: "struct IEscrowMilestone.DepositRequest",
+        name: "_deposit",
+        type: "tuple",
+      },
       {
         components: [
           { internalType: "address", name: "contractor", type: "address" },
@@ -335,6 +363,7 @@ export const milestoneAbiTest = [
   },
   {
     inputs: [
+      { internalType: "address", name: "_contractor", type: "address" },
       { internalType: "bytes", name: "_data", type: "bytes" },
       { internalType: "bytes32", name: "_salt", type: "bytes32" },
     ],
@@ -344,9 +373,15 @@ export const milestoneAbiTest = [
     type: "function",
   },
   {
-    inputs: [],
-    name: "getCurrentContractId",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    inputs: [
+      { internalType: "address", name: "_client", type: "address" },
+      { internalType: "uint256", name: "_contractId", type: "uint256" },
+      { internalType: "address", name: "_paymentToken", type: "address" },
+      { internalType: "bytes32", name: "_milestonesHash", type: "bytes32" },
+      { internalType: "uint256", name: "_expiration", type: "uint256" },
+    ],
+    name: "getDepositHash",
+    outputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
     stateMutability: "view",
     type: "function",
   },
@@ -355,6 +390,28 @@ export const milestoneAbiTest = [
     name: "getMilestoneCount",
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      {
+        components: [
+          { internalType: "address", name: "contractor", type: "address" },
+          { internalType: "uint256", name: "amount", type: "uint256" },
+          { internalType: "uint256", name: "amountToClaim", type: "uint256" },
+          { internalType: "uint256", name: "amountToWithdraw", type: "uint256" },
+          { internalType: "bytes32", name: "contractorData", type: "bytes32" },
+          { internalType: "enum Enums.FeeConfig", name: "feeConfig", type: "uint8" },
+          { internalType: "enum Enums.Status", name: "status", type: "uint8" },
+        ],
+        internalType: "struct IEscrowMilestone.Milestone[]",
+        name: "_milestones",
+        type: "tuple[]",
+      },
+    ],
+    name: "hashMilestones",
+    outputs: [{ internalType: "bytes32", name: "", type: "bytes32" }],
+    stateMutability: "pure",
     type: "function",
   },
   {
@@ -403,6 +460,16 @@ export const milestoneAbiTest = [
       { internalType: "uint256", name: "depositAmount", type: "uint256" },
       { internalType: "enum Enums.Winner", name: "winner", type: "uint8" },
     ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { internalType: "uint256", name: "contractId", type: "uint256" },
+      { internalType: "uint256", name: "milestoneId", type: "uint256" },
+    ],
+    name: "previousStatuses",
+    outputs: [{ internalType: "enum Enums.Status", name: "", type: "uint8" }],
     stateMutability: "view",
     type: "function",
   },
@@ -460,6 +527,7 @@ export const milestoneAbiTest = [
       { internalType: "uint256", name: "_milestoneId", type: "uint256" },
       { internalType: "bytes", name: "_data", type: "bytes" },
       { internalType: "bytes32", name: "_salt", type: "bytes32" },
+      { internalType: "bytes", name: "_signature", type: "bytes" },
     ],
     name: "submit",
     outputs: [],

@@ -1,11 +1,11 @@
 import { type Address, decodeFunctionData, formatUnits, type Hash } from "viem";
 import type { Hex } from "viem/types/misc";
 import { NotMatchError } from "@/Error";
-import { ChainNameEnum, type SymbolToken } from "@/environment";
+import { ChainNameEnum, type Environment, type SymbolToken } from "@/environment";
 import { DepositStatus, type DisputeWinner, RefillType } from "@/Deposit";
 import { hourlyAbiBeta, hourlyAbiTest } from "@/abi/EscrowHourly";
 import { fixedPriceAbiBeta, fixedPriceAbiTest } from "@/abi/EscrowFixedPrice";
-import { milestoneAbiBeta, milestoneAbiTest } from "@/abi/EscrowMilestone";
+import { /*milestoneAbiBeta, */ milestoneAbiTest } from "@/abi/EscrowMilestone";
 import { embeddedAbi, lightAccountAbi } from "@/abi/Embedded";
 
 interface ContractInput {
@@ -332,18 +332,18 @@ export function parseInput(data: Hex, chainName: ChainNameEnum, isEmbedded: bool
 
 export function parseMilestoneInput(
   data: Hex,
-  chainName: ChainNameEnum,
+  environment: Environment,
   isEmbedded: boolean = false
 ): TransactionInput {
   let abi;
   let inputMilestone;
 
-  switch (chainName) {
-    case ChainNameEnum.Sepolia:
+  switch (environment) {
+    case "test":
       abi = milestoneAbiTest;
       break;
-    case ChainNameEnum.PolygonAmoy:
-      abi = milestoneAbiBeta;
+    case "beta2":
+      abi = milestoneAbiTest;
       break;
     default:
       throw new Error("Unsupported chainName");
@@ -375,19 +375,27 @@ export function parseMilestoneInput(
 
   switch (inputMilestone.functionName) {
     case "deposit":
+      if (!Array.isArray(inputMilestone.args[1])) {
+        throw new Error("Expected array for deposit milestones but got something else.");
+      }
+
+      console.log("Decoded args:", inputMilestone.args);
+      console.log("First milestone object:", inputMilestone.args[1][0]);
+      console.log("contractId:", inputMilestone.args[0]?.contractId);
+
       return {
         functionName: "deposit",
-        depositId: inputMilestone.args[0],
-        contractor: inputMilestone.args[2][0]?.contractor,
-        tokenAddress: inputMilestone.args[1],
+        depositId: inputMilestone.args[0]?.contractId || 1n,
+        contractor: inputMilestone.args[1][0]?.contractor,
+        tokenAddress: inputMilestone.args[0].paymentToken,
         tokenSymbol: "MockUSDT", // FIXME remove hardcode
-        amount: inputMilestone.args[2].reduce((accumulator, value) => {
+        amount: inputMilestone.args[1].reduce((accumulator, value) => {
           accumulator += Number(formatUnits(value.amount, 6));
           return accumulator;
         }, 0),
         timeLock: 0n,
-        feeConfig: inputMilestone.args[2][0]?.feeConfig,
-        recipientData: inputMilestone.args[2][0]?.contractorData,
+        feeConfig: inputMilestone.args[1][0]?.feeConfig,
+        recipientData: inputMilestone.args[1][0]?.contractorData,
       } as EscrowDepositMilestoneInput;
     case "withdraw":
       return {
@@ -447,7 +455,6 @@ export function parseMilestoneInput(
         functionName: "cancelReturn",
         depositId: inputMilestone.args[0],
         escrowMilestoneId: inputMilestone.args[1],
-        status: inputMilestone.args[2],
       } as EscrowCancelReturnRequestMilestoneInput;
     case "createDispute":
       return {
@@ -512,10 +519,10 @@ export function parseHourlyInput(data: Hex, chainName: ChainNameEnum, isEmbedded
         functionName: "deposit",
         depositId: inputHourly.args[0],
         contractor: inputHourly.args[1]?.contractor,
-        tokenAddress: inputHourly.args[1].paymentToken,
+        tokenAddress: inputHourly.args[1]?.paymentToken,
         tokenSymbol: "MockUSDT",
-        amount: Number(formatUnits(inputHourly.args[1].prepaymentAmount, 6)),
-        amountToClaim: Number(formatUnits(inputHourly.args[1].amountToClaim, 6)),
+        amount: Number(formatUnits(inputHourly?.args[1]?.prepaymentAmount || 0n, 6)),
+        amountToClaim: Number(formatUnits(inputHourly?.args[1]?.amountToClaim || 0n, 6)),
         timeLock: 0n,
         feeConfig: inputHourly.args[1]?.feeConfig,
         recipientData: "0x0",

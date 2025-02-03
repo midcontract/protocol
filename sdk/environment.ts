@@ -7,7 +7,7 @@ import { hourlyAbiTest } from "@/abi/EscrowHourly";
 import { factoryAbiBeta, factoryAbiTest } from "@/abi/EscrowFactory";
 import { feeManagerAbiTest } from "@/abi/FeeManager";
 
-export type Environment = "prod" | "beta" | "beta2" | "test" | "local";
+export type Environment = "prod" | "beta" | "beta2" | "test";
 
 export type SymbolToken = "USDT" | "USDC" | "MockUSDT" | "MockDAI" | "MockUSDC";
 
@@ -35,7 +35,6 @@ export type ContractList = {
 };
 
 export enum ChainID {
-  Localhost = 31337,
   Sepolia = 11_155_111,
   BlastSepolia = 168_587_773,
   PolygonAmoy = 80_002,
@@ -53,42 +52,20 @@ export enum ChainNameEnum {
 }
 
 export const environmentList: EnvironmentList = {
-  local: {
-    31337: {
-      chainName: ChainNameEnum.Localhost,
-      escrow: {
-        REGISTRY: "0xB536cc39702CE1103E12d6fBC3199cFC32d714f3",
-        MOCK_PAYMENT_TOKEN: "0x288f4508660A747C77A95D68D5b77eD89CdE9D03",
-        ESCROW_FIX_PRICE: "0xD8038Fae596CDC13cC9b3681A6Eb44cC1984D670",
-        ESCROW_MILESTONE: "0x9fD178b75AE324B573f8A8a21a74159375F383c5",
-        FACTORY: "0xeaD5265B6412103d316b6389c0c15EBA82a0cbDa",
-        FEE_MANAGER: "0xA4857B1178425cfaaaeedBcFc220F242b4A518fA",
-        ESCROW_PROXY: "0xEAC34764333F697c31a7C72ee74ED33D1dEfff0d",
-        ADMIN: "0x3eAb900aC1E0de25F465c63717cD1044fF69243C",
-        ADMIN_MANAGER: "0xaDfE561EE14842D05a7720a4d9Eb2579891f3D67",
-      },
-      tokenList: {
-        MockUSDT: {
-          symbol: "MockUSDT",
-          address: "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-          decimals: 6,
-        },
-      },
-    },
-  },
   test: {
     80_002: {
       chainName: ChainNameEnum.PolygonAmoy,
       escrow: {
-        ESCROW_FIX_PRICE: "0x803DFC1fBB4Ba3A6eB9603eDe2458b5F62C117a8",
-        ESCROW_MILESTONE: "0x2D789b9133e5a88d64Ed6b17Cf6443a1FC8bfce3",
-        ESCROW_HOURLY: "0xD0E424C9ebda1D635cFDFB11Ac10303C148F5049",
-        FACTORY: "0xE2B05184705A5b25De95DcEc77147B93B4a26f31",
-        REGISTRY: "0x17EB9587525A4CdD60A06375f1F5ba9d69684198",
-        FEE_MANAGER: "0x9FAb81E260be5A5cD7371D6227a004Ce219C46F5",
-        ADMIN_MANAGER: "0x501cbBCa63ea1f0cc9a490A33B60f08eCD2DAB27",
+        ESCROW_FIX_PRICE: "0x913BF24E47C5F0D3B33AF23CF024b453D6cbcf24",
+        ESCROW_MILESTONE: "0x68c0A4c905672e80e92a2B6177e4dbA878E71332",
+        ESCROW_HOURLY: "0x7D2D6482c8612Fa04406A3BA099F31146D0E447b",
+        FACTORY: "0x44BB077F73FD6136187EA408F695f7508E88e236",
+        REGISTRY: "0x511576f212FfA4A985e79804de213904B701B095",
+        FEE_MANAGER: "0x802603E43D68b5A5C5A1fae8De96ec6caf30EE01",
+        ADMIN_MANAGER: "0x2248A2e34FBCd2FC2cD5c436B82ED0B257cf5de3",
         ADMIN: "0x3eAb900aC1E0de25F465c63717cD1044fF69243C",
         MOCK_PAYMENT_TOKEN: "0xD19AC10fE911d913Eb0B731925d3a69c80Bd6643",
+        ESCROW_ACCOUNT_RECOVERY: "0xFa29B8D4bFC70c623073F5B46Da35612A3ec300b",
         FIXED_PRICE_ABI: fixedPriceAbiTest,
         MILESTONE_ABI: milestoneAbiTest,
         HOURLY_ABI: hourlyAbiTest,

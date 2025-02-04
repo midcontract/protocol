@@ -3,8 +3,8 @@ import type { Hex } from "viem/types/misc";
 import { NotMatchError } from "@/Error";
 import { ChainNameEnum, type Environment, type SymbolToken } from "@/environment";
 import { DepositStatus, type DisputeWinner, RefillType } from "@/Deposit";
-import { hourlyAbiBeta, hourlyAbiTest } from "@/abi/EscrowHourly";
-import { fixedPriceAbiBeta, fixedPriceAbiTest } from "@/abi/EscrowFixedPrice";
+import { /*hourlyAbiBeta,*/ hourlyAbiTest } from "@/abi/EscrowHourly";
+import { /*fixedPriceAbiBeta*/ fixedPriceAbiTest } from "@/abi/EscrowFixedPrice";
 import { /*milestoneAbiBeta, */ milestoneAbiTest } from "@/abi/EscrowMilestone";
 import { embeddedAbi, lightAccountAbi } from "@/abi/Embedded";
 
@@ -225,7 +225,7 @@ export function parseInput(data: Hex, chainName: ChainNameEnum, isEmbedded: bool
       abi = fixedPriceAbiTest;
       break;
     case ChainNameEnum.PolygonAmoy:
-      abi = fixedPriceAbiBeta;
+      abi = fixedPriceAbiTest;
       break;
     default:
       throw new Error("Unsupported chainName");
@@ -310,7 +310,6 @@ export function parseInput(data: Hex, chainName: ChainNameEnum, isEmbedded: bool
       return {
         functionName: "cancelReturn",
         depositId: inputFixPrice.args[0],
-        status: inputFixPrice.args[1],
       } as EscrowCancelReturnRequestInput;
     case "createDispute":
       return {
@@ -484,7 +483,7 @@ export function parseHourlyInput(data: Hex, chainName: ChainNameEnum, isEmbedded
       abi = hourlyAbiTest;
       break;
     case ChainNameEnum.PolygonAmoy:
-      abi = hourlyAbiBeta;
+      abi = hourlyAbiTest;
       break;
     default:
       throw new Error("Unsupported chainName");
@@ -517,14 +516,14 @@ export function parseHourlyInput(data: Hex, chainName: ChainNameEnum, isEmbedded
     case "deposit":
       return {
         functionName: "deposit",
-        depositId: inputHourly.args[0],
-        contractor: inputHourly.args[1]?.contractor,
-        tokenAddress: inputHourly.args[1]?.paymentToken,
+        depositId: inputHourly.args[0].contractId,
+        contractor: inputHourly.args[0]?.contractor,
+        tokenAddress: inputHourly.args[0]?.paymentToken,
         tokenSymbol: "MockUSDT",
-        amount: Number(formatUnits(inputHourly?.args[1]?.prepaymentAmount || 0n, 6)),
-        amountToClaim: Number(formatUnits(inputHourly?.args[1]?.amountToClaim || 0n, 6)),
+        amount: Number(formatUnits(inputHourly?.args[0]?.prepaymentAmount || 0n, 6)),
+        amountToClaim: Number(formatUnits(inputHourly?.args[0]?.amountToClaim || 0n, 6)),
         timeLock: 0n,
-        feeConfig: inputHourly.args[1]?.feeConfig,
+        feeConfig: inputHourly.args[0]?.feeConfig,
         recipientData: "0x0",
       } as EscrowDepositHourlyInput;
     case "withdraw":
@@ -577,7 +576,6 @@ export function parseHourlyInput(data: Hex, chainName: ChainNameEnum, isEmbedded
       return {
         functionName: "cancelReturn",
         depositId: inputHourly.args[0],
-        status: inputHourly.args[1],
       } as EscrowCancelReturnRequestHourlyInput;
     case "createDispute":
       return {

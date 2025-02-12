@@ -1,6 +1,6 @@
 {
   "name": "@midcontract/protocol",
-  "version": "1.0.0-rc.32",
+  "version": "1.0.0-rc.33",
   "description": "Crypto payment protocol with escrow",
   "keywords": [
     "payment",

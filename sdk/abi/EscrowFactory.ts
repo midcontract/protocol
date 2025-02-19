@@ -168,17 +168,34 @@ export const factoryAbiTest = [
 export const factoryAbiBeta = [
   {
     inputs: [
+      { internalType: "address", name: "_adminManager", type: "address" },
       { internalType: "address", name: "_registry", type: "address" },
       { internalType: "address", name: "_owner", type: "address" },
     ],
     stateMutability: "nonpayable",
     type: "constructor",
   },
+  { inputs: [], name: "ETHTransferFailed", type: "error" },
   { inputs: [], name: "EnforcedPause", type: "error" },
   { inputs: [], name: "ExpectedPause", type: "error" },
-  { inputs: [], name: "Factory__InvalidEscrowType", type: "error" },
-  { inputs: [], name: "Factory__ZeroAddressProvided", type: "error" },
+  { inputs: [], name: "InvalidEscrowType", type: "error" },
   { inputs: [], name: "Unauthorized", type: "error" },
+  { inputs: [], name: "ZeroAddressProvided", type: "error" },
+  {
+    anonymous: false,
+    inputs: [{ indexed: false, internalType: "address", name: "adminManager", type: "address" }],
+    name: "AdminManagerUpdated",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: false, internalType: "address", name: "receiver", type: "address" },
+      { indexed: false, internalType: "uint256", name: "amount", type: "uint256" },
+    ],
+    name: "ETHWithdrawn",
+    type: "event",
+  },
   {
     anonymous: false,
     inputs: [
@@ -225,14 +242,16 @@ export const factoryAbiBeta = [
     name: "Unpaused",
     type: "event",
   },
+  {
+    inputs: [],
+    name: "adminManager",
+    outputs: [{ internalType: "contract IEscrowAdminManager", name: "", type: "address" }],
+    stateMutability: "view",
+    type: "function",
+  },
   { inputs: [], name: "confirmOwner", outputs: [], stateMutability: "payable", type: "function" },
   {
-    inputs: [
-      { internalType: "enum Enums.EscrowType", name: "_escrowType", type: "uint8" },
-      { internalType: "address", name: "_client", type: "address" },
-      { internalType: "address", name: "_adminManager", type: "address" },
-      { internalType: "address", name: "_registry", type: "address" },
-    ],
+    inputs: [{ internalType: "enum Enums.EscrowType", name: "_escrowType", type: "uint8" }],
     name: "deployEscrow",
     outputs: [{ internalType: "address", name: "deployedProxy", type: "address" }],
     stateMutability: "nonpayable",
@@ -291,8 +310,22 @@ export const factoryAbiBeta = [
   },
   { inputs: [], name: "unpause", outputs: [], stateMutability: "nonpayable", type: "function" },
   {
+    inputs: [{ internalType: "address", name: "_adminManager", type: "address" }],
+    name: "updateAdminManager",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
     inputs: [{ internalType: "address", name: "_registry", type: "address" }],
     name: "updateRegistry",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [{ internalType: "address", name: "_receiver", type: "address" }],
+    name: "withdrawETH",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",

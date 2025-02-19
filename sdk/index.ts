@@ -968,9 +968,12 @@ export class MidcontractProtocol {
       console.log(`Fixed submit salt - ${salt}`);
       console.dir(this.account, { depth: 0 });
 
-      const signedContractorData = await this.wallet.signMessage({
-        account: this.account,
-        message: encodedData,
+      // @ts-expect-error test another method
+      const signedContractorData = await this.account.signMessage({
+        // account: this.account,
+        message: {
+          raw: encodedData,
+        },
       });
 
       const { request } = await this.public.simulateContract({

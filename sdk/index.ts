@@ -378,7 +378,7 @@ export class MidcontractProtocol {
       if (currentChainId != providerChainId) {
         throw new NotMatchError(`chainId ${providerChainId} provider and current chainId ${currentChainId}`);
       }
-      console.log(`Provider chain id in changeProvider - ${providerChainId}`);
+      console.dir(`Provider chain id in changeProvider - ${providerChainId}`, { depth: 0 });
     }
     this.wallet = createWalletClient({
       account,
@@ -389,8 +389,8 @@ export class MidcontractProtocol {
       chain: this.public.chain,
       transport: custom(provider),
     });
-    console.log(`Wallet chain - ${this.wallet.chain}`);
-    console.log(`Public chain - ${this.public.chain}`);
+    console.dir(`Wallet chain - ${this.wallet.chain}`, { depth: 0 });
+    console.dir(`Public chain - ${this.public.chain}`, { depth: 0 });
   }
 
   changeEscrow(escrow: Address): void {
@@ -969,7 +969,7 @@ export class MidcontractProtocol {
       console.log(`fixed submit encoded data - ${encodedData}`);
       console.log(`Fixed submit this.account - ${this.account.address}`);
       console.log(`Fixed submit salt - ${salt}`);
-      console.log(`Wallet chain id in submit method - ${this.wallet.chain}`);
+      console.dir(`Wallet chain id in submit method - ${this.wallet.chain}`, { depth: 0 });
       console.dir(this.account, { depth: 0 });
 
       const signedContractorData = await this.wallet.signMessage({

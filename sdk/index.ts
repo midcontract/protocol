@@ -979,9 +979,7 @@ export class MidcontractProtocol {
 
       const signedContractorData = await this.wallet.signMessage({
         account: this.account,
-        message: {
-          raw: encodedData,
-        },
+        message: encodedData,
       });
 
       const { request } = await this.public.simulateContract({

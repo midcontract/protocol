@@ -384,11 +384,11 @@ export class MidcontractProtocol {
     const transport = alchemy({ apiKey: alchemyApiKey });
     this.wallet = createWalletClient({
       account,
-      chain: polygonAmoy as Chain,
+      chain: polygonAmoy,
       transport: transport,
     });
     this.public = createPublicClient({
-      chain: polygonAmoy as Chain,
+      chain: polygonAmoy,
       transport: transport,
     });
     console.log(`Wallet chain`);

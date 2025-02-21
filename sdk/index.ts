@@ -970,9 +970,14 @@ export class MidcontractProtocol {
         encodePacked(["address", "bytes", "bytes32"], [this.account.address, hexData, salt])
       );
 
-      const signedContractorData = await this.wallet.signMessage({
-        account: this.account,
-        message: encodedData,
+      // const signedContractorData = await this.wallet.signMessage({
+      //   account: this.account,
+      //   message: encodedData,
+      // });
+
+      const signedContractorData = await this.wallet.transport.request({
+        method: "personal_sign",
+        params: [encodedData, this.account.address],
       });
 
       const { request } = await this.public.simulateContract({

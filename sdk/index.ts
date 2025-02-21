@@ -6,7 +6,7 @@ import {
   ContractFunctionExecutionError,
   createPublicClient,
   createWalletClient,
-  custom,
+  // custom,
   type CustomTransport,
   decodeFunctionData,
   type EIP1193Provider,
@@ -30,7 +30,7 @@ import {
   encodePacked,
 } from "viem";
 import { erc20Abi } from "abitype/abis";
-import { polygonAmoy } from "@account-kit/infra";
+import { polygonAmoy, alchemy } from "@account-kit/infra";
 import type { Hex } from "viem/types/misc";
 import {
   contractList,
@@ -359,7 +359,7 @@ export class MidcontractProtocol {
     });
   }
 
-  async changeProvider(provider: EIP1193Provider): Promise<void> {
+  async changeProvider(provider: EIP1193Provider, alchemyApiKey: string): Promise<void> {
     const accounts = await provider.request({ method: "eth_accounts" });
     if (accounts.length == 0) {
       throw new NotSetError("account");
@@ -381,14 +381,15 @@ export class MidcontractProtocol {
       console.log(`Provider chain id in changeProvider`);
       console.dir(providerChainId, { depth: 0 });
     }
+    const transport = alchemy({ apiKey: alchemyApiKey });
     this.wallet = createWalletClient({
       account,
       chain: this.wallet.chain,
-      transport: custom(provider),
+      transport: transport,
     });
     this.public = createPublicClient({
       chain: this.public.chain,
-      transport: custom(provider),
+      transport: transport,
     });
     console.log(`Wallet chain`);
     console.dir(this.wallet.chain, { depth: 0 });

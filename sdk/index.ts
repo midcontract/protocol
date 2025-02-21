@@ -30,7 +30,7 @@ import {
   encodePacked,
 } from "viem";
 import { erc20Abi } from "abitype/abis";
-import { polygonAmoy } from "viem/chains";
+import { polygonAmoy } from "@account-kit/infra";
 import type { Hex } from "viem/types/misc";
 import {
   contractList,
@@ -51,7 +51,7 @@ import {
   NotSupportError,
   SimulateError,
 } from "@/Error";
-import { blastSepolia } from "@/chain/blastSepolia";
+// import { blastSepolia } from "@/chain/blastSepolia";
 import { type DecodedInput, parseHourlyInput, parseInput, parseMilestoneInput, type TransactionInput } from "@/parse";
 import { FeeManager } from "@/feeManager/feeManager";
 import { Deposit, DepositStatus, DisputeWinner, type FeeConfig, RefillType } from "@/Deposit";
@@ -319,16 +319,16 @@ export class MidcontractProtocol {
           factoryAbi: factoryAbiTest,
         };
         break;
-      case "beta":
-        chain = blastSepolia;
-        abiList = {
-          fixedPriceAbi: fixedPriceAbiTest,
-          milestoneAbi: milestoneAbiTest,
-          hourlyAbi: hourlyAbiTest,
-          feeManagerAbi: feeManagerAbiTest,
-          factoryAbi: factoryAbiTest,
-        };
-        break;
+      // case "beta":
+      //   chain = blastSepolia;
+      //   abiList = {
+      //     fixedPriceAbi: fixedPriceAbiTest,
+      //     milestoneAbi: milestoneAbiTest,
+      //     hourlyAbi: hourlyAbiTest,
+      //     feeManagerAbi: feeManagerAbiTest,
+      //     factoryAbi: factoryAbiTest,
+      //   };
+      //   break;
       case "beta2":
       default:
         chain = polygonAmoy;

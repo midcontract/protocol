@@ -970,17 +970,50 @@ export class MidcontractProtocol {
         encodePacked(["address", "bytes", "bytes32"], [this.account.address, hexData, salt])
       );
 
-      console.log(`fixed submit encoded data - ${encodedData}`);
-      console.log(`Fixed submit this.account - ${this.account.address}`);
-      console.log(`Fixed submit salt - ${salt}`);
-      console.log(`Wallet chain id in submit method`);
-      console.dir(this.wallet.chain, { depth: 0 });
-      console.dir(this.account, { depth: 0 });
+      const supportedMethods = await this.wallet.request({ method: "eth_supportedMethods" });
+      console.log("Supported methods");
+      console.dir(supportedMethods, { depth: 0 });
 
-      const signedContractorData = await this.wallet.signMessage({
-        account: this.account,
-        message: encodedData,
+      // const signedContractorData = await this.wallet.signMessage({
+      //   account: this.account,
+      //   message: { raw: encodedData },
+      // });
+
+      let signedContractorData = await this.wallet.request({
+        method: "eth_sign",
+        params: [this.account.address, encodedData],
       });
+
+      console.log(`SignedContractorData via eth_sign - ${signedContractorData}`);
+
+      const domain = {
+        name: "Midcontract Escrow",
+        version: "1",
+        chainId: await this.public.getChainId(),
+        verifyingContract: this.escrow,
+      };
+
+      const types = {
+        SubmitData: [
+          { name: "signer", type: "address" },
+          { name: "dataHash", type: "bytes32" },
+          { name: "salt", type: "bytes32" },
+        ],
+      };
+
+      const value = {
+        signer: this.account.address,
+        dataHash: encodedData,
+        salt: salt,
+      };
+
+      // Підписуємо через signTypedData
+      signedContractorData = await this.wallet.request({
+        method: "eth_signTypedData_v4",
+        params: [this.account.address, JSON.stringify({ domain, types, value })],
+      });
+
+      console.log(`SignedContractorData via sign typed data - ${signedContractorData}`);
 
       const { request } = await this.public.simulateContract({
         address: this.escrow,

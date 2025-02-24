@@ -365,10 +365,10 @@ export class MidcontractProtocol {
     if (accounts.length == 0) {
       throw new NotSetError("account");
     }
-    const account = {
-      address: accounts[0],
-      type: "json-rpc",
-    } as Account;
+    // const account = {
+    //   address: accounts[0],
+    //   type: "json-rpc",
+    // } as Account;
     if (this.public.chain) {
       const currentChainId = BigInt(this.public.chain.id);
       const providerChainId = await provider
@@ -381,7 +381,7 @@ export class MidcontractProtocol {
       }
     }
     this.wallet = createWalletClient({
-      account,
+      // account,
       chain: this.wallet.chain,
       transport: custom(provider),
     });

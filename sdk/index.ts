@@ -60,6 +60,7 @@ import { milestoneAbiBeta, milestoneAbiTest } from "@/abi/EscrowMilestone";
 import { hourlyAbiBeta, hourlyAbiTest } from "@/abi/EscrowHourly";
 import { feeManagerAbiBeta, feeManagerAbiTest } from "@/abi/FeeManager";
 import { embeddedAbi, lightAccountAbi } from "@/abi/Embedded";
+import { WalletClientSigner } from "@aa-sdk/core";
 
 export interface DepositAmount {
   totalDepositAmount: number;
@@ -955,7 +956,13 @@ export class MidcontractProtocol {
     }
   }
 
-  async escrowSubmit(contractId: bigint, salt: Hash, data: string, waitReceipt = true): Promise<TransactionId> {
+  async escrowSubmit(
+    contractId: bigint,
+    salt: Hash,
+    data: string,
+    isEmbedded = false,
+    waitReceipt = true
+  ): Promise<TransactionId> {
     try {
       const hexData = toHex(new TextEncoder().encode(data));
 
@@ -963,12 +970,19 @@ export class MidcontractProtocol {
         encodePacked(["address", "bytes", "bytes32"], [this.account.address, hexData, salt])
       );
 
-      const signedContractorData = await this.wallet.signMessage({
-        account: this.account,
-        message: {
-          raw: encodedData,
-        },
-      });
+      let signedContractorData: Hash;
+
+      if (isEmbedded) {
+        const signer = new WalletClientSigner(this.wallet, "json-rpc");
+        signedContractorData = await signer.signMessage(encodedData);
+      } else {
+        signedContractorData = await this.wallet.signMessage({
+          account: this.account,
+          message: {
+            raw: encodedData,
+          },
+        });
+      }
 
       const { request } = await this.public.simulateContract({
         address: this.escrow,

@@ -973,9 +973,11 @@ export class MidcontractProtocol {
       let signedContractorData: Hash;
 
       if (isEmbedded) {
+        console.log("EMBEDDED CASE");
         const signer = new WalletClientSigner(this.wallet, "json-rpc");
         signedContractorData = await signer.signMessage(encodedData);
       } else {
+        console.log("EXTERNAL CASE");
         signedContractorData = await this.wallet.signMessage({
           account: this.account,
           message: {

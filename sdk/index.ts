@@ -365,10 +365,10 @@ export class MidcontractProtocol {
     if (accounts.length == 0) {
       throw new NotSetError("account");
     }
-    // const account = {
-    //   address: accounts[0],
-    //   type: "json-rpc",
-    // } as Account;
+    const account = {
+      address: accounts[0],
+      type: "json-rpc",
+    } as Account;
     if (this.public.chain) {
       const currentChainId = BigInt(this.public.chain.id);
       const providerChainId = await provider
@@ -381,7 +381,7 @@ export class MidcontractProtocol {
       }
     }
     this.wallet = createWalletClient({
-      // account,
+      account,
       chain: this.wallet.chain,
       transport: custom(provider),
     });
@@ -976,6 +976,7 @@ export class MidcontractProtocol {
         console.log("EMBEDDED CASE");
         const signer = new WalletClientSigner(this.wallet, "json-rpc");
         signedContractorData = await signer.signMessage(encodedData);
+        console.log(`Signed data - ${signedContractorData}`);
       } else {
         console.log("EXTERNAL CASE");
         signedContractorData = await this.wallet.signMessage({

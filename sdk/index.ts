@@ -365,10 +365,10 @@ export class MidcontractProtocol {
     if (accounts.length == 0) {
       throw new NotSetError("account");
     }
-    const account = {
-      address: accounts[0],
-      type: "json-rpc",
-    } as Account;
+    // const account = {
+    //   address: accounts[0],
+    //   type: "json-rpc",
+    // } as Account;
     if (this.public.chain) {
       const currentChainId = BigInt(this.public.chain.id);
       const providerChainId = await provider
@@ -381,7 +381,7 @@ export class MidcontractProtocol {
       }
     }
     this.wallet = createWalletClient({
-      account,
+      // account,
       chain: this.wallet.chain,
       transport: custom(provider),
     });
@@ -960,15 +960,14 @@ export class MidcontractProtocol {
     contractId: bigint,
     salt: Hash,
     data: string,
+    address: string,
     isEmbedded = false,
     waitReceipt = true
   ): Promise<TransactionId> {
     try {
       const hexData = toHex(new TextEncoder().encode(data));
 
-      const encodedData = keccak256(
-        encodePacked(["address", "bytes", "bytes32"], [this.account.address, hexData, salt])
-      );
+      const encodedData = keccak256(encodePacked(["address", "bytes", "bytes32"], [address, hexData, salt]));
 
       let signedContractorData: Hash;
 

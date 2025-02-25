@@ -960,7 +960,7 @@ export class MidcontractProtocol {
     contractId: bigint,
     salt: Hash,
     data: string,
-    address: string,
+    address: Address,
     isEmbedded = false,
     waitReceipt = true
   ): Promise<TransactionId> {
@@ -974,7 +974,9 @@ export class MidcontractProtocol {
       if (isEmbedded) {
         console.log("EMBEDDED CASE");
         const signer = new WalletClientSigner(this.wallet, "json-rpc");
-        signedContractorData = await signer.signMessage(encodedData);
+        signedContractorData = await signer.signMessage({
+          raw: encodedData,
+        });
         console.log(`Signed data - ${signedContractorData}`);
       } else {
         console.log("EXTERNAL CASE");

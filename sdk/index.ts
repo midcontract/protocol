@@ -973,7 +973,10 @@ export class MidcontractProtocol {
 
       if (isEmbedded) {
         console.log("EMBEDDED CASE");
+        console.dir(this.wallet, { depth: 0 });
+        console.dir(this.wallet.chain, { depth: 0 });
         const signer = new WalletClientSigner(this.wallet, "json-rpc");
+        console.dir(signer, { depth: 0 });
         signedContractorData = await signer.signMessage({
           raw: encodedData,
         });

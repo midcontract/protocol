@@ -60,7 +60,6 @@ import { milestoneAbiBeta, milestoneAbiTest } from "@/abi/EscrowMilestone";
 import { hourlyAbiBeta, hourlyAbiTest } from "@/abi/EscrowHourly";
 import { feeManagerAbiBeta, feeManagerAbiTest } from "@/abi/FeeManager";
 import { embeddedAbi, lightAccountAbi } from "@/abi/Embedded";
-import { WalletClientSigner } from "@aa-sdk/core";
 
 export interface DepositAmount {
   totalDepositAmount: number;
@@ -716,6 +715,12 @@ export class MidcontractProtocol {
     });
   }
 
+  hashContractorData(data: Hash, salt: Hash) {
+    const hexData = toHex(new TextEncoder().encode(data));
+
+    return keccak256(encodePacked(["address", "bytes", "bytes32"], [this.account.address, hexData, salt]));
+  }
+
   public async getTransactionReceipt(hash: Hash, waitReceipt = false): Promise<TransactionReceipt | null> {
     let receipt: TransactionReceipt | null = null;
     try {
@@ -960,36 +965,24 @@ export class MidcontractProtocol {
     contractId: bigint,
     salt: Hash,
     data: string,
-    address: Address,
-    isEmbedded = false,
+    signature?: Hash,
     waitReceipt = true
   ): Promise<TransactionId> {
     try {
       const hexData = toHex(new TextEncoder().encode(data));
 
-      const encodedData = keccak256(encodePacked(["address", "bytes", "bytes32"], [address, hexData, salt]));
+      const encodedData = keccak256(
+        encodePacked(["address", "bytes", "bytes32"], [this.account.address, hexData, salt])
+      );
 
-      let signedContractorData: Hash;
-
-      if (isEmbedded) {
-        console.log("EMBEDDED CASE");
-        console.dir(this.wallet, { depth: 0 });
-        console.dir(this.wallet.chain, { depth: 0 });
-        const signer = new WalletClientSigner(this.wallet, "json-rpc");
-        console.dir(signer, { depth: 0 });
-        signedContractorData = await signer.signMessage({
-          raw: encodedData,
-        });
-        console.log(`Signed data - ${signedContractorData}`);
-      } else {
-        console.log("EXTERNAL CASE");
-        signedContractorData = await this.wallet.signMessage({
-          account: this.account,
-          message: {
-            raw: encodedData,
-          },
-        });
-      }
+      const signedContractorData = signature
+        ? signature
+        : await this.wallet.signMessage({
+            account: this.account,
+            message: {
+              raw: encodedData,
+            },
+          });
 
       const { request } = await this.public.simulateContract({
         address: this.escrow,

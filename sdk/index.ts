@@ -715,7 +715,7 @@ export class MidcontractProtocol {
     });
   }
 
-  hashContractorData(data: Hash, salt: Hash) {
+  hashContractorData(data: string, salt: Hash) {
     const hexData = toHex(new TextEncoder().encode(data));
 
     return keccak256(encodePacked(["address", "bytes", "bytes32"], [this.account.address, hexData, salt]));

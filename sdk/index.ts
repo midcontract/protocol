@@ -983,33 +983,29 @@ export class MidcontractProtocol {
               raw: encodedData,
             },
           });
-      let simulateResponse;
 
-      try {
-        simulateResponse = await this.public.simulateContract({
-          address: this.escrow,
-          abi: this.fixedPriceAbi,
-          account: this.account,
-          args: [contractId, hexData, salt, signedContractorData],
-          functionName: "submit",
-        });
-      } catch (error) {
-        console.log("");
-      }
+      // const { request } = await this.public.simulateContract({
+      //   address: this.escrow,
+      //   abi: this.fixedPriceAbi,
+      //   account: this.account,
+      //   args: [contractId, hexData, salt, signedContractorData],
+      //   functionName: "submit",
+      // });
 
-      if (simulateResponse) {
-        const hash = await this.send(simulateResponse.request);
-        const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-        return {
-          id: hash,
-          status: receipt ? receipt.status : "pending",
-        };
-      } else {
-        return {
-          id: "0x0",
-          status: "pending",
-        };
-      }
+      const hash = await this.send({
+        address: this.escrow,
+        abi: this.fixedPriceAbi,
+        chain: this.wallet.chain,
+        account: this.account,
+        args: [contractId, hexData, salt, signedContractorData],
+        functionName: "submit",
+      });
+      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      console.log("Submit hash -> ", hash);
+      return {
+        id: hash,
+        status: receipt ? receipt.status : "pending",
+      };
     } catch (error) {
       if (error instanceof ContractFunctionExecutionError) {
         throw new SimulateError(error.message);

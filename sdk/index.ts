@@ -983,20 +983,33 @@ export class MidcontractProtocol {
               raw: encodedData,
             },
           });
+      let simulateResponse;
 
-      const { request } = await this.public.simulateContract({
-        address: this.escrow,
-        abi: this.fixedPriceAbi,
-        account: this.account,
-        args: [contractId, hexData, salt, signedContractorData],
-        functionName: "submit",
-      });
-      const hash = await this.send(request);
-      const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-      return {
-        id: hash,
-        status: receipt ? receipt.status : "pending",
-      };
+      try {
+        simulateResponse = await this.public.simulateContract({
+          address: this.escrow,
+          abi: this.fixedPriceAbi,
+          account: this.account,
+          args: [contractId, hexData, salt, signedContractorData],
+          functionName: "submit",
+        });
+      } catch (error) {
+        console.log("");
+      }
+
+      if (simulateResponse) {
+        const hash = await this.send(simulateResponse.request);
+        const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+        return {
+          id: hash,
+          status: receipt ? receipt.status : "pending",
+        };
+      } else {
+        return {
+          id: "0x0",
+          status: "pending",
+        };
+      }
     } catch (error) {
       if (error instanceof ContractFunctionExecutionError) {
         throw new SimulateError(error.message);

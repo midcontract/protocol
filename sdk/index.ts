@@ -985,22 +985,15 @@ export class MidcontractProtocol {
             },
           });
 
-      // const { request } = await this.public.simulateContract({
-      //   address: this.escrow,
-      //   abi: this.fixedPriceAbi,
-      //   account: this.account,
-      //   args: [contractId, contractorAddress, hexData, salt, signedContractorData],
-      //   functionName: "submit",
-      // });
-
-      const hash = await this.send({
+      const { request } = await this.public.simulateContract({
         address: this.escrow,
         abi: this.fixedPriceAbi,
         account: this.account,
-        chain: this.wallet.chain,
         args: [contractId, contractorAddress, hexData, salt, signedContractorData],
         functionName: "submit",
       });
+
+      const hash = await this.send(request);
       const receipt = await this.getTransactionReceipt(hash, waitReceipt);
       console.log("Submit hash -> ", hash);
       return {

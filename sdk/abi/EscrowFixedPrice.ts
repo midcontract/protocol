@@ -334,16 +334,6 @@ export const fixedPriceAbiTest = [
     type: "function",
   },
   {
-    inputs: [
-      { internalType: "bytes32", name: "_hash", type: "bytes32" },
-      { internalType: "bytes", name: "_signature", type: "bytes" },
-    ],
-    name: "isValidSignature",
-    outputs: [{ internalType: "bytes4", name: "", type: "bytes4" }],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
     inputs: [{ internalType: "uint256", name: "contractId", type: "uint256" }],
     name: "previousStatuses",
     outputs: [{ internalType: "enum Enums.Status", name: "", type: "uint8" }],
@@ -389,6 +379,7 @@ export const fixedPriceAbiTest = [
   {
     inputs: [
       { internalType: "uint256", name: "_contractId", type: "uint256" },
+      { internalType: "address", name: "_signer", type: "address" },
       { internalType: "bytes", name: "_data", type: "bytes" },
       { internalType: "bytes32", name: "_salt", type: "bytes32" },
       { internalType: "bytes", name: "_signature", type: "bytes" },

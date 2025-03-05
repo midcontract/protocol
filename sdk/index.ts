@@ -965,6 +965,7 @@ export class MidcontractProtocol {
     contractId: bigint,
     salt: Hash,
     data: string,
+    contractorAddress: Hash,
     signature?: Hash,
     waitReceipt = true
   ): Promise<TransactionId> {
@@ -997,7 +998,7 @@ export class MidcontractProtocol {
         abi: this.fixedPriceAbi,
         chain: this.wallet.chain,
         account: this.account,
-        args: [contractId, hexData, salt, signedContractorData],
+        args: [contractId, contractorAddress, hexData, salt, signedContractorData],
         functionName: "submit",
       });
       const receipt = await this.getTransactionReceipt(hash, waitReceipt);

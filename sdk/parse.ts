@@ -280,8 +280,11 @@ export function parseInput(data: Hex, chainName: ChainNameEnum, isEmbedded: bool
     case "submit":
       return {
         functionName: "submit",
-        depositId: inputFixPrice.args[0],
-        data: inputFixPrice.args[1],
+        depositId: inputFixPrice.args[0].contractId,
+        data: inputFixPrice.args[0].data,
+        expiration: inputFixPrice.args[0].expiration,
+        salt: inputFixPrice.args[0].salt,
+        signature: inputFixPrice.args[0].signature,
       } as EscrowSubmitInput;
     case "approve":
       return {
@@ -418,9 +421,12 @@ export function parseMilestoneInput(
     case "submit":
       return {
         functionName: "submit",
-        depositId: inputMilestone.args[0],
-        escrowMilestoneId: inputMilestone.args[1],
-        data: inputMilestone.args[2],
+        depositId: inputMilestone.args[0].contractId,
+        escrowMilestoneId: inputMilestone.args[0].milestoneId,
+        data: inputMilestone.args[0].data,
+        salt: inputMilestone.args[0].salt,
+        signature: inputMilestone.args[0].signature,
+        expiration: inputMilestone.args[0].expiration,
       } as EscrowSubmitMilestoneInput;
     case "approve":
       return {

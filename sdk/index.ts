@@ -965,37 +965,31 @@ export class MidcontractProtocol {
     contractId: bigint,
     salt: Hash,
     data: string,
-    contractorAddress: Hash,
-    signature?: Hash,
+    signature: Hash,
+    expiration: number,
     waitReceipt = true
   ): Promise<TransactionId> {
     try {
       const hexData = toHex(new TextEncoder().encode(data));
 
-      const encodedData = keccak256(
-        encodePacked(["address", "bytes", "bytes32"], [this.account.address, hexData, salt])
-      );
-
-      const signedContractorData = signature
-        ? signature
-        : await this.wallet.signMessage({
-            account: this.account,
-            message: {
-              raw: encodedData,
-            },
-          });
+      const payload = {
+        contractId,
+        data: hexData,
+        salt,
+        expiration: BigInt(expiration),
+        signature,
+      };
 
       const { request } = await this.public.simulateContract({
         address: this.escrow,
         abi: this.fixedPriceAbi,
         account: this.account,
-        args: [contractId, contractorAddress, hexData, salt, signedContractorData],
+        args: [payload],
         functionName: "submit",
       });
 
       const hash = await this.send(request);
       const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-      console.log("Submit hash -> ", hash);
       return {
         id: hash,
         status: receipt ? receipt.status : "pending",

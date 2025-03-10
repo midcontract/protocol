@@ -523,11 +523,19 @@ export const milestoneAbiTest = [
   },
   {
     inputs: [
-      { internalType: "uint256", name: "_contractId", type: "uint256" },
-      { internalType: "uint256", name: "_milestoneId", type: "uint256" },
-      { internalType: "bytes", name: "_data", type: "bytes" },
-      { internalType: "bytes32", name: "_salt", type: "bytes32" },
-      { internalType: "bytes", name: "_signature", type: "bytes" },
+      {
+        components: [
+          { internalType: "uint256", name: "contractId", type: "uint256" },
+          { internalType: "uint256", name: "milestoneId", type: "uint256" },
+          { internalType: "bytes", name: "data", type: "bytes" },
+          { internalType: "bytes32", name: "salt", type: "bytes32" },
+          { internalType: "uint256", name: "expiration", type: "uint256" },
+          { internalType: "bytes", name: "signature", type: "bytes" },
+        ],
+        internalType: "struct IEscrowMilestone.SubmitRequest",
+        name: "_request",
+        type: "tuple",
+      },
     ],
     name: "submit",
     outputs: [],

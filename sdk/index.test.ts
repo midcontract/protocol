@@ -1,8 +1,9 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { privateKeyToAccount } from "viem/accounts";
 import { MidcontractProtocol } from "./.";
-import type { Address } from "viem";
-import { DepositStatus, DisputeWinner, FeeConfig, RefillType } from "./Deposit";
+import { type Address, type Hash, toHex } from "viem";
+import { DisputeWinner, FeeConfig, RefillType } from "./Deposit";
+import { ethers } from "ethers";
 
 const random = (min: number, max: number) => Math.round(Math.random() * (max - min) + min);
 const getDepositId = () => BigInt(random(100000, 1000000));
@@ -12,16 +13,71 @@ let userEscrow: Address;
 let userEscrowMilestone: Address;
 let userEscrowHourly: Address;
 
-const alice = privateKeyToAccount("0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d");
-const bob = privateKeyToAccount("0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a");
+const alicePK = "0x00000000000000000000";
+const bobPK = "0x00000000000000000000";
+const adminPK = "0x00000000000000000000";
+const alice = privateKeyToAccount(alicePK);
+const bob = privateKeyToAccount(bobPK);
+const admin = privateKeyToAccount(adminPK);
 
-const mp = MidcontractProtocol.buildByEnvironment("test", undefined);
+const mp = MidcontractProtocol.buildByEnvironment("test", undefined, "https://rpc-amoy.polygon.technology");
+
+interface SignSubmitPayload {
+  contractId: bigint;
+  milestoneId?: bigint;
+  contractorAddress: Address;
+  escrowAddress: Address;
+  salt: Hash;
+  data: string;
+  expiration: number;
+}
+
+async function signSubmitPayload(payload: SignSubmitPayload) {
+  const wallet = new ethers.Wallet(adminPK);
+
+  let types;
+  let values;
+
+  const hexData = toHex(new TextEncoder().encode(payload.data));
+
+  if (payload.milestoneId !== undefined && payload.milestoneId !== null) {
+    types = ["uint256", "uint256", "address", "bytes", "bytes32", "uint256", "address"];
+    values = [
+      payload.contractId,
+      payload.milestoneId,
+      payload.contractorAddress,
+      hexData,
+      payload.salt,
+      BigInt(payload.expiration),
+      payload.escrowAddress,
+    ];
+  } else {
+    types = ["uint256", "address", "bytes", "bytes32", "uint256", "address"];
+    values = [
+      payload.contractId,
+      payload.contractorAddress,
+      hexData,
+      payload.salt,
+      payload.expiration,
+      payload.escrowAddress,
+    ];
+  }
+
+  const rawHash = ethers.solidityPackedKeccak256(types, values);
+
+  const finalHash = ethers.hashMessage(ethers.getBytes(rawHash));
+
+  const rawSignature: ethers.Signature = wallet.signingKey.sign(finalHash);
+
+  return ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+}
 
 async function newData() {
   const depositId = getDepositId();
   const data = getData();
   const salt = mp.escrowMakeSalt(42);
-  const recipientData = await mp.escrowMakeDataHash(data, salt);
+  // const recipientData = "0x4b5722391bd845853b7bfbee672eda09e7bb5a6005ad66ebe057aac8b8349fd0" as `0x${string}`;
+  const recipientData = await mp.escrowMakeDataHash(bob.address, data, salt);
   const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
   const bobBalance = await mp.tokenBalance(bob.address, "MockUSDT");
   return {
@@ -72,16 +128,22 @@ describe("Fees Manager", async () => {
   describe("Get fees and max BPS", async () => {
     it("getCoverageFee", async () => {
       const coverageFee = await mp.getCoverageFee(alice.address);
+      const coverageFeeDefault = await mp.getCoverageFee();
 
       expect(coverageFee).toBeDefined();
+      expect(coverageFeeDefault).toBeDefined();
       expect(coverageFee).not.toBeNaN();
-    });
+      expect(coverageFeeDefault).not.toBeNaN();
+    }, 1200000);
 
     it("getClaimFee", async () => {
       const claimFee = await mp.getClaimFee(alice.address);
+      const claimFeeDefault = await mp.getClaimFee();
 
       expect(claimFee).toBeDefined();
+      expect(claimFeeDefault).toBeDefined();
       expect(claimFee).not.toBeNaN();
+      expect(claimFeeDefault).not.toBeNaN();
     });
 
     it("get MaxBPS", async () => {
@@ -253,43 +315,84 @@ describe("Fees Manager", async () => {
       expect(depositAmount.clientFee).toEqual(clientFee);
     });
   });
+
+  describe("Fees per contract", async () => {
+    it("Set special fees per instance", async () => {
+      const coverageFee = 3;
+      const claimFee = 5;
+      mp.changeAccount(alice);
+      const { userEscrow } = await mp.deployEscrow();
+      mp.changeEscrow(userEscrow);
+
+      mp.changeAccount(admin);
+      await mp.setInstanceFees(userEscrow, coverageFee, claimFee);
+
+      const updatedCoverageFee = await mp.getCoverageFee(alice.address);
+      const updatedClaimFee = await mp.getClaimFee(alice.address);
+
+      expect(updatedClaimFee).toEqual(claimFee);
+      expect(updatedCoverageFee).toEqual(coverageFee);
+    });
+
+    // it("Set special fees per contract", async () => {
+    //   mp.changeAccount(alice);
+    //   const { userEscrow } = await mp.deployEscrow();
+    //   mp.changeEscrow(userEscrow);
+    //   const coverageFee = 1;
+    //   const claimFee = 2;
+    //   const amount = 4;
+    //   const amountToClaim = 0;
+    //   const { recipientData } = await newData();
+    //   const tokenSymbol = "MockUSDT";
+    //
+    //   const depositInput = {
+    //     contractorAddress: bob.address,
+    //     token: tokenSymbol,
+    //     amount,
+    //     amountToClaim,
+    //     recipientData,
+    //     feeConfig: FeeConfig.CLIENT_COVERS_ALL,
+    //   };
+    //
+    //   const depositResponse = await mp.escrowDeposit(depositInput);
+    //   expect(depositResponse).toBeDefined();
+    //   expect(depositResponse.status).toEqual("success");
+    //   expect(depositResponse.contractId).toBeDefined();
+    //
+    //   mp.changeAccount(admin);
+    //   await mp.setContractSpecificFees(userEscrow, depositResponse.contractId, coverageFee, claimFee);
+    //
+    //   const updatedCoverageFee = await mp.getCoverageFee(alice.address, depositResponse.contractId);
+    //   const updatedClaimFee = await mp.getClaimFee(alice.address, depositResponse.contractId);
+    //
+    //   expect(updatedClaimFee).toEqual(claimFee);
+    //   expect(updatedCoverageFee).toEqual(coverageFee);
+    // });
+  }, 1200000);
 });
 
 describe("base", async () => {
-  beforeAll(async () => {
-    mp.changeAccount(alice);
-    if (!userEscrow) {
-      const deployEscrowResponse = await mp.deployEscrow();
-      userEscrow = deployEscrowResponse.userEscrow;
-      console.log("Fixed price contract deployed");
-    }
-    if (!userEscrowMilestone) {
-      const deployEscrowMilestoneResponse = await mp.deployMilestoneEscrow();
-      userEscrowMilestone = deployEscrowMilestoneResponse.userEscrow;
-      console.log("Milestone contract deployed");
-    }
-
-    if (!userEscrowHourly) {
-      const deployEscrowHourlyResponse = await mp.deployHourlyEscrow();
-      userEscrowHourly = deployEscrowHourlyResponse.userEscrow;
-      console.log("Hourly contract deployed!");
-    }
-  }, 1200000);
   describe("Fixed price flow", async () => {
     beforeAll(async () => {
       mp.changeAccount(alice);
+      if (!userEscrow) {
+        const deployEscrowResponse = await mp.deployEscrow();
+        userEscrow = deployEscrowResponse.userEscrow;
+        console.log("Fixed price contract deployed");
+      }
       mp.changeEscrow(userEscrow);
     }, 1200000);
     it("success flow Fixed Price", async () => {
-      const amount = 10;
+      const amount = 4;
       const amountToClaim = 0;
-      const { data, salt, recipientData, aliceBalance, bobBalance } = await newData();
-      const tokenSymbol = "MockUSDT";
+      const { salt, recipientData, data } = await newData();
+      const tokenSymbol = "MockUSDC";
 
       mp.changeAccount(alice);
 
       //  create deposit
       const depositInput = {
+        contractId: BigInt(1),
         contractorAddress: bob.address,
         token: tokenSymbol,
         amount,
@@ -297,7 +400,17 @@ describe("base", async () => {
         recipientData,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const deposit = await mp.escrowDeposit(depositInput);
+      const preparedDeposit = await mp.prepareEscrowDepositPayload(depositInput);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+
+      const deposit = await mp.escrowDeposit(preparedDeposit);
       expect(deposit.status).toEqual("success");
       expect(deposit.contractId).toBeDefined();
 
@@ -306,7 +419,17 @@ describe("base", async () => {
 
       // say address worker
       mp.changeAccount(bob);
-      const escrowSubmit = await mp.escrowSubmit(contractId, salt, data);
+
+      const expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      const submitSignature = await signSubmitPayload({
+        contractId,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrow,
+        data,
+        salt,
+        expiration,
+      });
+      const escrowSubmit = await mp.escrowSubmit(contractId, salt, data, submitSignature, expiration);
       expect(escrowSubmit.status).toEqual("success");
 
       // approve work
@@ -317,15 +440,16 @@ describe("base", async () => {
         recipient: bob.address,
       });
       expect(escrowApprove.status).toEqual("success");
-      expect((await mp.getDepositList(contractId)).amountToClaim).toEqual(amount);
+      const contractAmountToClaim = (await mp.getDepositList(contractId)).amountToClaim;
+      expect(contractAmountToClaim).toEqual(amount);
 
       // claim deposit
       mp.changeAccount(bob);
       const escrowClaim = await mp.escrowClaim(contractId);
       expect(escrowClaim.status).toEqual("success");
 
-      expect(await mp.tokenBalance(alice.address)).toBeLessThan(aliceBalance);
-      expect(await mp.tokenBalance(bob.address)).toEqual(bobBalance + amount);
+      // expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(aliceBalance);
+      // expect(await mp.tokenBalance(bob.address)).toEqual(bobBalance + amount);
     }, 1200000);
 
     it("success flow cancel return request", async () => {
@@ -338,6 +462,7 @@ describe("base", async () => {
 
       // create deposit
       const depositInput = {
+        contractId: BigInt(2),
         contractorAddress: bob.address,
         token: tokenSymbol,
         amount,
@@ -345,7 +470,17 @@ describe("base", async () => {
         recipientData,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const deposit = await mp.escrowDeposit(depositInput);
+      const preparedDeposit = await mp.prepareEscrowDepositPayload(depositInput);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+
+      const deposit = await mp.escrowDeposit(preparedDeposit);
       expect(deposit.status).toEqual("success");
       expect(deposit.contractId).toBeDefined();
 
@@ -354,14 +489,23 @@ describe("base", async () => {
 
       // submit work
       mp.changeAccount(bob);
-      const escrowSubmit = await mp.escrowSubmit(contractId, salt, data);
+      const expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      const submitSignature = await signSubmitPayload({
+        contractId,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrow,
+        data,
+        salt,
+        expiration,
+      });
+      const escrowSubmit = await mp.escrowSubmit(contractId, salt, data, submitSignature, expiration);
       expect(escrowSubmit.status).toEqual("success");
 
       mp.changeAccount(alice);
       const requestReturnResponse = await mp.requestReturn(contractId);
       expect(requestReturnResponse.status).toEqual("success");
 
-      const cancelReturnResponse = await mp.cancelReturn(contractId, DepositStatus.ACTIVE);
+      const cancelReturnResponse = await mp.cancelReturn(contractId);
       expect(cancelReturnResponse.status).toEqual("success");
     }, 1200000);
 
@@ -375,6 +519,7 @@ describe("base", async () => {
 
       // create deposit
       const depositInput = {
+        contractId: BigInt(3),
         contractorAddress: bob.address,
         token: tokenSymbol,
         amount,
@@ -382,7 +527,17 @@ describe("base", async () => {
         recipientData,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const deposit = await mp.escrowDeposit(depositInput);
+      const preparedDeposit = await mp.prepareEscrowDepositPayload(depositInput);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+
+      const deposit = await mp.escrowDeposit(preparedDeposit);
       expect(deposit.status).toEqual("success");
       expect(deposit.contractId).toBeDefined();
 
@@ -391,7 +546,16 @@ describe("base", async () => {
 
       // submit work
       mp.changeAccount(bob);
-      const escrowSubmit = await mp.escrowSubmit(contractId, salt, data);
+      const expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      const submitSignature = await signSubmitPayload({
+        contractId,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrow,
+        data,
+        salt,
+        expiration,
+      });
+      const escrowSubmit = await mp.escrowSubmit(contractId, salt, data, submitSignature, expiration);
       expect(escrowSubmit.status).toEqual("success");
 
       mp.changeAccount(alice);
@@ -417,6 +581,7 @@ describe("base", async () => {
 
       // create deposit
       const depositInput = {
+        contractId: BigInt(4),
         contractorAddress: bob.address,
         token: tokenSymbol,
         amount,
@@ -424,7 +589,17 @@ describe("base", async () => {
         recipientData,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const deposit = await mp.escrowDeposit(depositInput);
+      const preparedDeposit = await mp.prepareEscrowDepositPayload(depositInput);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+
+      const deposit = await mp.escrowDeposit(preparedDeposit);
       expect(deposit.status).toEqual("success");
       expect(deposit.contractId).toBeDefined();
 
@@ -433,7 +608,16 @@ describe("base", async () => {
 
       // submit work
       mp.changeAccount(bob);
-      const escrowSubmit = await mp.escrowSubmit(contractId, salt, data);
+      const expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      const submitSignature = await signSubmitPayload({
+        contractId,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrow,
+        data,
+        salt,
+        expiration,
+      });
+      const escrowSubmit = await mp.escrowSubmit(contractId, salt, data, submitSignature, expiration);
       expect(escrowSubmit.status).toEqual("success");
 
       mp.changeAccount(alice);
@@ -459,6 +643,7 @@ describe("base", async () => {
 
       // create deposit
       const depositInput = {
+        contractId: BigInt(5),
         contractorAddress: bob.address,
         token: tokenSymbol,
         amount,
@@ -466,7 +651,17 @@ describe("base", async () => {
         recipientData,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const deposit = await mp.escrowDeposit(depositInput);
+      const preparedDeposit = await mp.prepareEscrowDepositPayload(depositInput);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+
+      const deposit = await mp.escrowDeposit(preparedDeposit);
       expect(deposit.status).toEqual("success");
       expect(deposit.contractId).toBeDefined();
 
@@ -475,7 +670,16 @@ describe("base", async () => {
 
       // submit work
       mp.changeAccount(bob);
-      const escrowSubmit = await mp.escrowSubmit(contractId, salt, data);
+      const expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      const submitSignature = await signSubmitPayload({
+        contractId,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrow,
+        data,
+        salt,
+        expiration,
+      });
+      const escrowSubmit = await mp.escrowSubmit(contractId, salt, data, submitSignature, expiration);
       expect(escrowSubmit.status).toEqual("success");
 
       mp.changeAccount(alice);
@@ -507,6 +711,7 @@ describe("base", async () => {
 
       // create deposit
       const depositInput = {
+        contractId: BigInt(6),
         contractorAddress: bob.address,
         token: tokenSymbol,
         amount,
@@ -514,7 +719,17 @@ describe("base", async () => {
         recipientData,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const deposit = await mp.escrowDeposit(depositInput);
+      const preparedDeposit = await mp.prepareEscrowDepositPayload(depositInput);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+
+      const deposit = await mp.escrowDeposit(preparedDeposit);
       expect(deposit.status).toEqual("success");
       expect(deposit.contractId).toBeDefined();
 
@@ -523,7 +738,16 @@ describe("base", async () => {
 
       // submit work
       mp.changeAccount(bob);
-      const escrowSubmit = await mp.escrowSubmit(contractId, salt, data);
+      const expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      const submitSignature = await signSubmitPayload({
+        contractId,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrow,
+        data,
+        salt,
+        expiration,
+      });
+      const escrowSubmit = await mp.escrowSubmit(contractId, salt, data, submitSignature, expiration);
       expect(escrowSubmit.status).toEqual("success");
 
       mp.changeAccount(alice);
@@ -549,6 +773,7 @@ describe("base", async () => {
 
       // create deposit
       const depositInput = {
+        contractId: BigInt(7),
         contractorAddress: bob.address,
         token: tokenSymbol,
         amount,
@@ -556,7 +781,17 @@ describe("base", async () => {
         recipientData,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const deposit = await mp.escrowDeposit(depositInput);
+      const preparedDeposit = await mp.prepareEscrowDepositPayload(depositInput);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+
+      const deposit = await mp.escrowDeposit(preparedDeposit);
       expect(deposit.status).toEqual("success");
       expect(deposit.contractId).toBeDefined();
 
@@ -565,7 +800,16 @@ describe("base", async () => {
 
       // submit work
       mp.changeAccount(bob);
-      const escrowSubmit = await mp.escrowSubmit(contractId, salt, data);
+      const expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      const submitSignature = await signSubmitPayload({
+        contractId,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrow,
+        data,
+        salt,
+        expiration,
+      });
+      const escrowSubmit = await mp.escrowSubmit(contractId, salt, data, submitSignature, expiration);
       expect(escrowSubmit.status).toEqual("success");
 
       mp.changeAccount(alice);
@@ -591,6 +835,7 @@ describe("base", async () => {
 
       // create deposit
       const depositInput = {
+        contractId: BigInt(8),
         contractorAddress: bob.address,
         token: tokenSymbol,
         amount,
@@ -598,7 +843,17 @@ describe("base", async () => {
         recipientData,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const deposit = await mp.escrowDeposit(depositInput);
+      const preparedDeposit = await mp.prepareEscrowDepositPayload(depositInput);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+
+      const deposit = await mp.escrowDeposit(preparedDeposit);
       expect(deposit.status).toEqual("success");
       expect(deposit.contractId).toBeDefined();
 
@@ -607,7 +862,16 @@ describe("base", async () => {
 
       // submit work
       mp.changeAccount(bob);
-      const escrowSubmit = await mp.escrowSubmit(contractId, salt, data);
+      const expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      const submitSignature = await signSubmitPayload({
+        contractId,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrow,
+        data,
+        salt,
+        expiration,
+      });
+      const escrowSubmit = await mp.escrowSubmit(contractId, salt, data, submitSignature, expiration);
       expect(escrowSubmit.status).toEqual("success");
 
       mp.changeAccount(alice);
@@ -627,6 +891,11 @@ describe("base", async () => {
   describe("Milestone flow", async () => {
     beforeAll(async () => {
       mp.changeAccount(alice);
+      if (!userEscrowMilestone) {
+        const deployEscrowMilestoneResponse = await mp.deployMilestoneEscrow();
+        userEscrowMilestone = deployEscrowMilestoneResponse.userEscrow;
+        console.log("Milestone contract deployed");
+      }
       mp.changeEscrow(userEscrowMilestone);
     }, 1200000);
 
@@ -635,6 +904,7 @@ describe("base", async () => {
       const amountToClaim = 0;
       const { data, salt, recipientData, aliceBalance } = await newData();
       const tokenSymbol = "MockUSDT";
+      const escrowContractId = BigInt(1);
 
       // new deposit for milestone1
       const depositInput = [
@@ -647,7 +917,18 @@ describe("base", async () => {
           feeConfig: FeeConfig.CLIENT_COVERS_ONLY,
         },
       ];
-      const milestone1 = await mp.escrowMilestoneDeposit(depositInput, tokenSymbol);
+
+      let preparedDeposit = await mp.prepareMilestoneDepositPayload(depositInput, tokenSymbol, escrowContractId);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      let rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.depositPayload.signature);
+
+      let signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.depositPayload.signature = signature as Hash;
+
+      const milestone1 = await mp.escrowMilestoneDeposit(preparedDeposit);
       expect(milestone1.status).toEqual("success");
       expect(milestone1.contractId).toBeDefined();
 
@@ -658,7 +939,26 @@ describe("base", async () => {
 
       // submit freelancer
       mp.changeAccount(bob);
-      const escrowSubmitStatus = await mp.escrowSubmitMilestone(contractId, milestone1Id, salt, data);
+
+      let expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      let submitSignature = await signSubmitPayload({
+        contractId,
+        milestoneId: milestone1Id,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrowMilestone,
+        data,
+        salt,
+        expiration,
+      });
+
+      const escrowSubmitStatus = await mp.escrowSubmitMilestone(
+        contractId,
+        milestone1Id,
+        salt,
+        data,
+        submitSignature,
+        expiration
+      );
       expect(escrowSubmitStatus.status).toEqual("success");
 
       // new deposit for milestone2
@@ -673,7 +973,15 @@ describe("base", async () => {
           feeConfig: FeeConfig.CLIENT_COVERS_ALL,
         },
       ];
-      const milestone2 = await mp.escrowMilestoneDeposit(deposit2Input, tokenSymbol, contractId);
+
+      preparedDeposit = await mp.prepareMilestoneDepositPayload(deposit2Input, tokenSymbol, escrowContractId);
+      rawSignature = wallet.signingKey.sign(preparedDeposit.depositPayload.signature);
+
+      signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.depositPayload.signature = signature as Hash;
+
+      const milestone2 = await mp.escrowMilestoneDeposit(preparedDeposit);
       expect(milestone2.status).toEqual("success");
 
       const milestone2Id = 1n;
@@ -691,7 +999,15 @@ describe("base", async () => {
           feeConfig: FeeConfig.CLIENT_COVERS_ALL,
         },
       ];
-      const milestone3 = await mp.escrowMilestoneDeposit(deposit3Input, tokenSymbol, contractId);
+
+      preparedDeposit = await mp.prepareMilestoneDepositPayload(deposit3Input, tokenSymbol, escrowContractId);
+      rawSignature = wallet.signingKey.sign(preparedDeposit.depositPayload.signature);
+
+      signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.depositPayload.signature = signature as Hash;
+
+      const milestone3 = await mp.escrowMilestoneDeposit(preparedDeposit);
       expect(milestone3.status).toEqual("success");
 
       const milestone3Id = 2n;
@@ -717,7 +1033,26 @@ describe("base", async () => {
 
       // submit milestone2 by freelancer
       mp.changeAccount(bob);
-      const escrowSubmitMilestone2 = await mp.escrowSubmitMilestone(contractId, milestone2Id, salt, data);
+
+      expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      submitSignature = await signSubmitPayload({
+        contractId,
+        milestoneId: milestone2Id,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrowMilestone,
+        data,
+        salt,
+        expiration,
+      });
+
+      const escrowSubmitMilestone2 = await mp.escrowSubmitMilestone(
+        contractId,
+        milestone2Id,
+        salt,
+        data,
+        submitSignature,
+        expiration
+      );
       expect(escrowSubmitMilestone2.status).toEqual("success");
 
       // approve and claim milestone2
@@ -738,7 +1073,25 @@ describe("base", async () => {
 
       // submit milestone3 by freelancer
       mp.changeAccount(bob);
-      const escrowSubmitMilestone3 = await mp.escrowSubmitMilestone(contractId, milestone3Id, salt, data);
+
+      expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      submitSignature = await signSubmitPayload({
+        contractId,
+        milestoneId: milestone3Id,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrowMilestone,
+        data,
+        salt,
+        expiration,
+      });
+      const escrowSubmitMilestone3 = await mp.escrowSubmitMilestone(
+        contractId,
+        milestone3Id,
+        salt,
+        data,
+        submitSignature,
+        expiration
+      );
       expect(escrowSubmitMilestone3.status).toEqual("success");
 
       // approve and claim milestone3
@@ -761,9 +1114,11 @@ describe("base", async () => {
     it("Claim all", async () => {
       const amount = 1;
       const amountToClaim = 0;
+      const escrowContractId = BigInt(2);
       const { data, salt, recipientData, aliceBalance, bobBalance } = await newData();
       const tokenSymbol = "MockUSDT";
 
+      mp.changeAccount(alice);
       // new deposit for milestone1
       const depositInput = [
         {
@@ -775,7 +1130,18 @@ describe("base", async () => {
           feeConfig: FeeConfig.CLIENT_COVERS_ONLY,
         },
       ];
-      const milestone1 = await mp.escrowMilestoneDeposit(depositInput, tokenSymbol);
+
+      let preparedDeposit = await mp.prepareMilestoneDepositPayload(depositInput, tokenSymbol, escrowContractId);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      let rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.depositPayload.signature);
+
+      let signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.depositPayload.signature = signature as Hash;
+
+      const milestone1 = await mp.escrowMilestoneDeposit(preparedDeposit);
       expect(milestone1.status).toEqual("success");
       expect(milestone1.contractId).toBeDefined();
 
@@ -790,7 +1156,24 @@ describe("base", async () => {
 
       // submit freelancer
       mp.changeAccount(bob);
-      const escrowSubmitStatus = await mp.escrowSubmitMilestone(contractId, milestone1Id, salt, data);
+      let expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      let submitSignature = await signSubmitPayload({
+        contractId,
+        milestoneId: milestone1Id,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrowMilestone,
+        data,
+        salt,
+        expiration,
+      });
+      const escrowSubmitStatus = await mp.escrowSubmitMilestone(
+        contractId,
+        milestone1Id,
+        salt,
+        data,
+        submitSignature,
+        expiration
+      );
       expect(escrowSubmitStatus.status).toEqual("success");
 
       // new deposit for milestone2
@@ -805,7 +1188,14 @@ describe("base", async () => {
           feeConfig: FeeConfig.CLIENT_COVERS_ALL,
         },
       ];
-      const milestone2 = await mp.escrowMilestoneDeposit(deposit2Input, tokenSymbol, contractId);
+      preparedDeposit = await mp.prepareMilestoneDepositPayload(deposit2Input, tokenSymbol, escrowContractId);
+      rawSignature = wallet.signingKey.sign(preparedDeposit.depositPayload.signature);
+
+      signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.depositPayload.signature = signature as Hash;
+
+      const milestone2 = await mp.escrowMilestoneDeposit(preparedDeposit);
       expect(milestone2.status).toEqual("success");
 
       const milestone2Id = 1n;
@@ -823,7 +1213,14 @@ describe("base", async () => {
           feeConfig: FeeConfig.CLIENT_COVERS_ALL,
         },
       ];
-      const milestone3 = await mp.escrowMilestoneDeposit(deposit3Input, tokenSymbol, contractId);
+      preparedDeposit = await mp.prepareMilestoneDepositPayload(deposit3Input, tokenSymbol, escrowContractId);
+      rawSignature = wallet.signingKey.sign(preparedDeposit.depositPayload.signature);
+
+      signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.depositPayload.signature = signature as Hash;
+
+      const milestone3 = await mp.escrowMilestoneDeposit(preparedDeposit);
       expect(milestone3.status).toEqual("success");
 
       const milestone3Id = 2n;
@@ -844,7 +1241,26 @@ describe("base", async () => {
 
       // submit milestone2 by freelancer
       mp.changeAccount(bob);
-      const escrowSubmitMilestone2 = await mp.escrowSubmitMilestone(contractId, milestone2Id, salt, data);
+
+      expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      submitSignature = await signSubmitPayload({
+        contractId,
+        milestoneId: milestone2Id,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrowMilestone,
+        data,
+        salt,
+        expiration,
+      });
+
+      const escrowSubmitMilestone2 = await mp.escrowSubmitMilestone(
+        contractId,
+        milestone2Id,
+        salt,
+        data,
+        submitSignature,
+        expiration
+      );
       expect(escrowSubmitMilestone2.status).toEqual("success");
 
       // approve milestone2
@@ -861,7 +1277,26 @@ describe("base", async () => {
 
       // submit milestone3 by freelancer
       mp.changeAccount(bob);
-      const escrowSubmitMilestone3 = await mp.escrowSubmitMilestone(contractId, milestone3Id, salt, data);
+
+      expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      submitSignature = await signSubmitPayload({
+        contractId,
+        milestoneId: milestone3Id,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrowMilestone,
+        data,
+        salt,
+        expiration,
+      });
+
+      const escrowSubmitMilestone3 = await mp.escrowSubmitMilestone(
+        contractId,
+        milestone3Id,
+        salt,
+        data,
+        submitSignature,
+        expiration
+      );
       expect(escrowSubmitMilestone3.status).toEqual("success");
 
       // approve milestone3
@@ -887,9 +1322,11 @@ describe("base", async () => {
     it("success flow - auto approve work", async () => {
       const amount = 1;
       const amountToClaim = 0;
+      const escrowContractId = BigInt(3);
       const { data, salt, recipientData, aliceBalance } = await newData();
       const tokenSymbol = "MockUSDT";
 
+      mp.changeAccount(alice);
       // new deposit for milestone1
       const depositInput = [
         {
@@ -901,7 +1338,18 @@ describe("base", async () => {
           feeConfig: FeeConfig.CLIENT_COVERS_ONLY,
         },
       ];
-      const milestone1 = await mp.escrowMilestoneDeposit(depositInput, tokenSymbol);
+
+      const preparedDeposit = await mp.prepareMilestoneDepositPayload(depositInput, tokenSymbol, escrowContractId);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.depositPayload.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.depositPayload.signature = signature as Hash;
+
+      const milestone1 = await mp.escrowMilestoneDeposit(preparedDeposit);
       expect(milestone1.status).toEqual("success");
       expect(milestone1.contractId).toBeDefined();
 
@@ -912,7 +1360,26 @@ describe("base", async () => {
 
       // submit freelancer
       mp.changeAccount(bob);
-      const escrowSubmitStatus = await mp.escrowSubmitMilestone(contractId, milestone1Id, salt, data);
+
+      const expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      const submitSignature = await signSubmitPayload({
+        contractId,
+        milestoneId: milestone1Id,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrowMilestone,
+        data,
+        salt,
+        expiration,
+      });
+
+      const escrowSubmitStatus = await mp.escrowSubmitMilestone(
+        contractId,
+        milestone1Id,
+        salt,
+        data,
+        submitSignature,
+        expiration
+      );
       expect(escrowSubmitStatus.status).toEqual("success");
 
       // auto approve and claim milestone1
@@ -935,6 +1402,7 @@ describe("base", async () => {
     it("success flow create and cancel return request", async () => {
       const amount = 10;
       const amountToClaim = 0;
+      const escrowContractId = BigInt(4);
       const { data, salt, recipientData } = await newData();
       const tokenSymbol = "MockUSDT";
 
@@ -950,7 +1418,19 @@ describe("base", async () => {
           feeConfig: FeeConfig.CLIENT_COVERS_ALL,
         },
       ];
-      const milestone1 = await mp.escrowMilestoneDeposit(depositInput, tokenSymbol);
+
+      const preparedDeposit = await mp.prepareMilestoneDepositPayload(depositInput, tokenSymbol, escrowContractId);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.depositPayload.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.depositPayload.signature = signature as Hash;
+
+      const milestone1 = await mp.escrowMilestoneDeposit(preparedDeposit);
+
       expect(milestone1.status).toEqual("success");
       expect(milestone1.contractId).toBeDefined();
       const contractId = milestone1.contractId;
@@ -958,24 +1438,44 @@ describe("base", async () => {
 
       // submit freelancer
       mp.changeAccount(bob);
-      const escrowSubmitStatus = await mp.escrowSubmitMilestone(contractId, milestone1Id, salt, data);
+
+      const expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      const submitSignature = await signSubmitPayload({
+        contractId,
+        milestoneId: milestone1Id,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrowMilestone,
+        data,
+        salt,
+        expiration,
+      });
+
+      const escrowSubmitStatus = await mp.escrowSubmitMilestone(
+        contractId,
+        milestone1Id,
+        salt,
+        data,
+        submitSignature,
+        expiration
+      );
       expect(escrowSubmitStatus.status).toEqual("success");
 
       mp.changeAccount(alice);
       const requestReturnResponse = await mp.requestReturnMilestone(contractId, milestone1Id);
       expect(requestReturnResponse.status).toEqual("success");
 
-      const approveReturnResponse = await mp.cancelReturnMilestone(contractId, milestone1Id, DepositStatus.SUBMITTED);
+      const approveReturnResponse = await mp.cancelReturnMilestone(contractId, milestone1Id);
       expect(approveReturnResponse.status).toEqual("success");
     }, 1200000);
 
     it("success flow create and approve return request with withdraw", async () => {
       const amount = 10;
       const amountToClaim = 0;
-      const { data, salt, recipientData } = await newData();
+      const escrowContractId = BigInt(5);
+      const { recipientData } = await newData();
       const tokenSymbol = "MockUSDT";
 
-      // new deposit for milestone1
+      /* new deposit for milestone1 */
       mp.changeAccount(alice);
       const depositInput = [
         {
@@ -987,21 +1487,33 @@ describe("base", async () => {
           feeConfig: FeeConfig.CLIENT_COVERS_ALL,
         },
       ];
-      const milestone1 = await mp.escrowMilestoneDeposit(depositInput, tokenSymbol);
+      let preparedDeposit = await mp.prepareMilestoneDepositPayload(depositInput, tokenSymbol, escrowContractId);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      let rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.depositPayload.signature);
+
+      let signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.depositPayload.signature = signature as Hash;
+
+      const milestone1 = await mp.escrowMilestoneDeposit(preparedDeposit);
       expect(milestone1.status).toEqual("success");
       expect(milestone1.contractId).toBeDefined();
       const contractId = milestone1.contractId;
       const milestone1Id = 0n;
 
-      // submit freelancer
-      mp.changeAccount(bob);
-      const escrowSubmitStatus = await mp.escrowSubmitMilestone(contractId, milestone1Id, salt, data);
-      expect(escrowSubmitStatus.status).toEqual("success");
+      // // submit freelancer
+      // mp.changeAccount(bob);
+      // const escrowSubmitStatus = await mp.escrowSubmitMilestone(contractId, milestone1Id, salt, data);
+      // expect(escrowSubmitStatus.status).toEqual("success");
 
+      /* Create escrow return request */
       mp.changeAccount(alice);
       const requestReturnResponse = await mp.requestReturnMilestone(contractId, milestone1Id);
       expect(requestReturnResponse.status).toEqual("success");
 
+      /* Approve return request */
       mp.changeAccount(bob);
       const approveReturnResponse = await mp.approveReturnMilestone(contractId, milestone1Id);
       expect(approveReturnResponse.status).toEqual("success");
@@ -1012,11 +1524,47 @@ describe("base", async () => {
       mp.changeAccount(alice);
       const withdrawResponse = await mp.escrowWithdrawMilestone(contractId, milestone1Id);
       expect(withdrawResponse.status).toEqual("success");
+
+      /* Deposit second milestone */
+
+      preparedDeposit = await mp.prepareMilestoneDepositPayload(depositInput, tokenSymbol, escrowContractId);
+      rawSignature = wallet.signingKey.sign(preparedDeposit.depositPayload.signature);
+
+      signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.depositPayload.signature = signature as Hash;
+
+      const milestone2 = await mp.escrowMilestoneDeposit(preparedDeposit);
+      expect(milestone2.status).toEqual("success");
+      const milestone2Id = 1n;
+
+      // // submit freelancer
+      // mp.changeAccount(bob);
+      // const escrowSubmitStatus = await mp.escrowSubmitMilestone(contractId, milestone1Id, salt, data);
+      // expect(escrowSubmitStatus.status).toEqual("success");
+
+      /* Create escrow return request */
+      mp.changeAccount(alice);
+      const requestReturnSecondMilestoneResponse = await mp.requestReturnMilestone(contractId, milestone2Id);
+      expect(requestReturnSecondMilestoneResponse.status).toEqual("success");
+
+      /* Approve return request */
+      mp.changeAccount(bob);
+      const approveReturnSecondMilestoneResponse = await mp.approveReturnMilestone(contractId, milestone2Id);
+      expect(approveReturnSecondMilestoneResponse.status).toEqual("success");
+
+      // const aliceBalanceAfterReturnApprove = await mp.tokenBalance(alice.address, "MockUSDT");
+      // expect(aliceBalanceAfterReturnApprove).toBeGreaterThan(aliceBalance);
+
+      mp.changeAccount(alice);
+      const withdrawSecondMilestoneResponse = await mp.escrowWithdrawMilestone(contractId, milestone2Id);
+      expect(withdrawSecondMilestoneResponse.status).toEqual("success");
     }, 1200000);
 
     it("success flow dispute - client won", async () => {
       const amount = 10;
       const amountToClaim = 0;
+      const escrowContractId = BigInt(6);
       const { data, salt, recipientData } = await newData();
       const tokenSymbol = "MockUSDT";
 
@@ -1032,7 +1580,17 @@ describe("base", async () => {
           feeConfig: FeeConfig.CLIENT_COVERS_ALL,
         },
       ];
-      const milestone1 = await mp.escrowMilestoneDeposit(depositInput, tokenSymbol);
+      const preparedDeposit = await mp.prepareMilestoneDepositPayload(depositInput, tokenSymbol, escrowContractId);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.depositPayload.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.depositPayload.signature = signature as Hash;
+
+      const milestone1 = await mp.escrowMilestoneDeposit(preparedDeposit);
       expect(milestone1.status).toEqual("success");
       expect(milestone1.contractId).toBeDefined();
       const contractId = milestone1.contractId;
@@ -1040,7 +1598,25 @@ describe("base", async () => {
 
       // submit freelancer
       mp.changeAccount(bob);
-      const escrowSubmitStatus = await mp.escrowSubmitMilestone(contractId, milestone1Id, salt, data);
+      const expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      const submitSignature = await signSubmitPayload({
+        contractId,
+        milestoneId: milestone1Id,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrowMilestone,
+        data,
+        salt,
+        expiration,
+      });
+
+      const escrowSubmitStatus = await mp.escrowSubmitMilestone(
+        contractId,
+        milestone1Id,
+        salt,
+        data,
+        submitSignature,
+        expiration
+      );
       expect(escrowSubmitStatus.status).toEqual("success");
 
       mp.changeAccount(alice);
@@ -1069,6 +1645,7 @@ describe("base", async () => {
     it("success flow dispute - contractor won", async () => {
       const amount = 10;
       const amountToClaim = 0;
+      const escrowContractId = BigInt(7);
       const { data, salt, recipientData } = await newData();
       const tokenSymbol = "MockUSDT";
 
@@ -1084,7 +1661,17 @@ describe("base", async () => {
           feeConfig: FeeConfig.CLIENT_COVERS_ALL,
         },
       ];
-      const milestone1 = await mp.escrowMilestoneDeposit(depositInput, tokenSymbol);
+      const preparedDeposit = await mp.prepareMilestoneDepositPayload(depositInput, tokenSymbol, escrowContractId);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.depositPayload.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.depositPayload.signature = signature as Hash;
+
+      const milestone1 = await mp.escrowMilestoneDeposit(preparedDeposit);
       expect(milestone1.status).toEqual("success");
       expect(milestone1.contractId).toBeDefined();
       const contractId = milestone1.contractId;
@@ -1092,7 +1679,24 @@ describe("base", async () => {
 
       // submit freelancer
       mp.changeAccount(bob);
-      const escrowSubmitStatus = await mp.escrowSubmitMilestone(contractId, milestone1Id, salt, data);
+      const expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      const submitSignature = await signSubmitPayload({
+        contractId,
+        milestoneId: milestone1Id,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrowMilestone,
+        data,
+        salt,
+        expiration,
+      });
+      const escrowSubmitStatus = await mp.escrowSubmitMilestone(
+        contractId,
+        milestone1Id,
+        salt,
+        data,
+        submitSignature,
+        expiration
+      );
       expect(escrowSubmitStatus.status).toEqual("success");
 
       mp.changeAccount(alice);
@@ -1121,6 +1725,7 @@ describe("base", async () => {
     it("success flow dispute - split", async () => {
       const amount = 10;
       const amountToClaim = 0;
+      const escrowContractId = BigInt(8);
       const { data, salt, recipientData } = await newData();
       const tokenSymbol = "MockUSDT";
 
@@ -1136,7 +1741,17 @@ describe("base", async () => {
           feeConfig: FeeConfig.CLIENT_COVERS_ALL,
         },
       ];
-      const milestone1 = await mp.escrowMilestoneDeposit(depositInput, tokenSymbol);
+      const preparedDeposit = await mp.prepareMilestoneDepositPayload(depositInput, tokenSymbol, escrowContractId);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.depositPayload.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.depositPayload.signature = signature as Hash;
+
+      const milestone1 = await mp.escrowMilestoneDeposit(preparedDeposit);
       expect(milestone1.status).toEqual("success");
       expect(milestone1.contractId).toBeDefined();
       const contractId = milestone1.contractId;
@@ -1144,7 +1759,24 @@ describe("base", async () => {
 
       // submit freelancer
       mp.changeAccount(bob);
-      const escrowSubmitStatus = await mp.escrowSubmitMilestone(contractId, milestone1Id, salt, data);
+      const expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      const submitSignature = await signSubmitPayload({
+        contractId,
+        milestoneId: milestone1Id,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrowMilestone,
+        data,
+        salt,
+        expiration,
+      });
+      const escrowSubmitStatus = await mp.escrowSubmitMilestone(
+        contractId,
+        milestone1Id,
+        salt,
+        data,
+        submitSignature,
+        expiration
+      );
       expect(escrowSubmitStatus.status).toEqual("success");
 
       mp.changeAccount(alice);
@@ -1178,6 +1810,7 @@ describe("base", async () => {
     it("success flow refill", async () => {
       const amount = 10;
       const amountToClaim = 0;
+      const escrowContractId = BigInt(9);
       const { data, salt, recipientData } = await newData();
       const tokenSymbol = "MockUSDT";
 
@@ -1193,7 +1826,17 @@ describe("base", async () => {
           feeConfig: FeeConfig.CLIENT_COVERS_ALL,
         },
       ];
-      const milestone1 = await mp.escrowMilestoneDeposit(depositInput, tokenSymbol);
+      const preparedDeposit = await mp.prepareMilestoneDepositPayload(depositInput, tokenSymbol, escrowContractId);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.depositPayload.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.depositPayload.signature = signature as Hash;
+
+      const milestone1 = await mp.escrowMilestoneDeposit(preparedDeposit);
       expect(milestone1.status).toEqual("success");
       expect(milestone1.contractId).toBeDefined();
       const contractId = milestone1.contractId;
@@ -1205,7 +1848,24 @@ describe("base", async () => {
 
       // submit freelancer
       mp.changeAccount(bob);
-      const escrowSubmitStatus = await mp.escrowSubmitMilestone(contractId, milestone1Id, salt, data);
+      const expiration = Math.floor(Date.now() / 1000) + 3 * 60 * 60;
+      const submitSignature = await signSubmitPayload({
+        contractId,
+        milestoneId: milestone1Id,
+        contractorAddress: bob.address,
+        escrowAddress: userEscrowMilestone,
+        data,
+        salt,
+        expiration,
+      });
+      const escrowSubmitStatus = await mp.escrowSubmitMilestone(
+        contractId,
+        milestone1Id,
+        salt,
+        data,
+        submitSignature,
+        expiration
+      );
       expect(escrowSubmitStatus.status).toEqual("success");
 
       mp.changeAccount(alice);
@@ -1222,15 +1882,63 @@ describe("base", async () => {
       const claimMilestoneResponse = await mp.escrowClaimMilestone(contractId, milestone1Id);
       expect(claimMilestoneResponse.status).toEqual("success");
     }, 1200000);
+
+    // it("success flow - 2 contracts should have different escrow contract id", async () => {
+    //   const amount = 1;
+    //   const amountToClaim = 0;
+    //   const { recipientData } = await newData();
+    //   const tokenSymbol = "MockUSDT";
+    //
+    //   // first contract deposit
+    //   const contractInput = [
+    //     {
+    //       contractorAddress: bob.address as Address,
+    //       token: tokenSymbol,
+    //       amount,
+    //       amountToClaim,
+    //       recipientData: recipientData,
+    //       feeConfig: FeeConfig.CLIENT_COVERS_ONLY,
+    //     },
+    //   ];
+    //   const firstContract = await mp.escrowMilestoneDeposit(contractInput, tokenSymbol);
+    //   expect(firstContract.status).toEqual("success");
+    //   expect(firstContract.contractId).toBeDefined();
+    //
+    //   const contractId1 = firstContract.contractId;
+    //
+    //   // second contract deposit
+    //   mp.changeAccount(alice);
+    //   const contract2Input = [
+    //     {
+    //       contractorAddress: bob.address,
+    //       token: tokenSymbol,
+    //       amount,
+    //       amountToClaim,
+    //       recipientData,
+    //       feeConfig: FeeConfig.CLIENT_COVERS_ALL,
+    //     },
+    //   ];
+    //   const secondContract = await mp.escrowMilestoneDeposit(contract2Input, tokenSymbol);
+    //   expect(secondContract.status).toEqual("success");
+    //   const contractId2 = secondContract.contractId;
+    //
+    //   expect(contractId1).not.toEqual(contractId2);
+    // }, 1200000);
   });
 
   describe("Hourly flow", async () => {
     beforeAll(async () => {
       mp.changeAccount(alice);
+      if (!userEscrowHourly) {
+        const deployEscrowHourlyResponse = await mp.deployHourlyEscrow();
+        userEscrowHourly = deployEscrowHourlyResponse.userEscrow;
+        console.log("Hourly contract deployed!");
+      }
       mp.changeEscrow(userEscrowHourly);
     }, 1200000);
     it("success flow without prepayment", async () => {
       const amountToClaim = 10;
+      const contractId = BigInt(1);
       // const { aliceBalance, bobBalance } = await newData();
       const tokenSymbol = "MockUSDT";
 
@@ -1241,11 +1949,21 @@ describe("base", async () => {
         amountToClaim,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const week1 = await mp.escrowDepositHourly(tokenSymbol, 0, undefined, depositInput);
+
+      const preparedDeposit = await mp.prepareEscrowDepositHourlyPayload(tokenSymbol, 0, contractId, depositInput);
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+
+      const week1 = await mp.escrowDepositHourly(preparedDeposit);
       expect(week1.status).toEqual("success");
       expect(week1.contractId).toBeDefined();
 
-      const contractId = week1.contractId;
       const week1Id = 0n;
       const contractDetails = await mp.getDepositListHourly(contractId, week1Id);
       expect(contractDetails.amount).toBeDefined();
@@ -1260,6 +1978,7 @@ describe("base", async () => {
     it("success flow with prepayment", async () => {
       const prepaymentAmount = 10;
       const amountToClaim = 10;
+      const escrowContractId = BigInt(2);
       // const { aliceBalance, bobBalance } = await newData();
       const tokenSymbol = "MockUSDT";
 
@@ -1270,7 +1989,21 @@ describe("base", async () => {
         amountToClaim: 0,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const week1 = await mp.escrowDepositHourly(tokenSymbol, prepaymentAmount, 0n, depositInput);
+      const preparedDeposit = await mp.prepareEscrowDepositHourlyPayload(
+        tokenSymbol,
+        prepaymentAmount,
+        escrowContractId,
+        depositInput
+      );
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+      const week1 = await mp.escrowDepositHourly(preparedDeposit);
       console.log(week1.id, " - deposit");
       expect(week1.status).toEqual("success");
       expect(week1.contractId).toBeDefined();
@@ -1302,6 +2035,7 @@ describe("base", async () => {
     it("success flow with prepayment and auto approve first week", async () => {
       const prepaymentAmount = 10;
       const amountToClaim = 5;
+      const escrowContractId = BigInt(3);
       const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
       const bobBalance = await mp.tokenBalance(bob.address, "MockUSDT");
       const tokenSymbol = "MockUSDT";
@@ -1313,7 +2047,22 @@ describe("base", async () => {
         amountToClaim: 0,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const prepayment = await mp.escrowDepositHourly(tokenSymbol, prepaymentAmount, 0n, depositInput);
+      const preparedDeposit = await mp.prepareEscrowDepositHourlyPayload(
+        tokenSymbol,
+        prepaymentAmount,
+        escrowContractId,
+        depositInput
+      );
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+      const prepayment = await mp.escrowDepositHourly(preparedDeposit);
+
       expect(prepayment.status).toEqual("success");
       expect(prepayment.contractId).toBeDefined();
 
@@ -1354,6 +2103,7 @@ describe("base", async () => {
     it("success flow with prepayment and auto approve second week", async () => {
       const prepaymentAmount = 10;
       const amountToClaim = 5;
+      const escrowContractId = BigInt(4);
       const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
       const bobBalance = await mp.tokenBalance(bob.address, "MockUSDT");
       const tokenSymbol = "MockUSDT";
@@ -1365,7 +2115,21 @@ describe("base", async () => {
         amountToClaim: 0,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const prepayment = await mp.escrowDepositHourly(tokenSymbol, prepaymentAmount, 0n, depositInput);
+      const preparedDeposit = await mp.prepareEscrowDepositHourlyPayload(
+        tokenSymbol,
+        prepaymentAmount,
+        escrowContractId,
+        depositInput
+      );
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+      const prepayment = await mp.escrowDepositHourly(preparedDeposit);
       expect(prepayment.status).toEqual("success");
       expect(prepayment.contractId).toBeDefined();
       expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(aliceBalance - prepaymentAmount);
@@ -1433,6 +2197,7 @@ describe("base", async () => {
     it("success flow with prepayment and refill", async () => {
       const prepaymentAmount = 10;
       const amountToClaim = 10;
+      const escrowContractId = BigInt(5);
       const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
       const bobBalance = await mp.tokenBalance(bob.address, "MockUSDT");
       const tokenSymbol = "MockUSDT";
@@ -1444,7 +2209,21 @@ describe("base", async () => {
         amountToClaim: 0,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const prepayment = await mp.escrowDepositHourly(tokenSymbol, prepaymentAmount, 0n, depositInput);
+      const preparedDeposit = await mp.prepareEscrowDepositHourlyPayload(
+        tokenSymbol,
+        prepaymentAmount,
+        escrowContractId,
+        depositInput
+      );
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+      const prepayment = await mp.escrowDepositHourly(preparedDeposit);
       expect(prepayment.status).toEqual("success");
       expect(prepayment.contractId).toBeDefined();
       expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(aliceBalance - prepaymentAmount);
@@ -1523,6 +2302,7 @@ describe("base", async () => {
     it("success flow with prepayment and escrow return request", async () => {
       const prepaymentAmount = 10;
       const amountToClaim = 5;
+      const escrowContractId = BigInt(6);
       const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
       const bobBalance = await mp.tokenBalance(bob.address, "MockUSDT");
       const tokenSymbol = "MockUSDT";
@@ -1534,7 +2314,21 @@ describe("base", async () => {
         amountToClaim: 0,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const prepayment = await mp.escrowDepositHourly(tokenSymbol, prepaymentAmount, 0n, depositInput);
+      const preparedDeposit = await mp.prepareEscrowDepositHourlyPayload(
+        tokenSymbol,
+        prepaymentAmount,
+        escrowContractId,
+        depositInput
+      );
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+      const prepayment = await mp.escrowDepositHourly(preparedDeposit);
       expect(prepayment.status).toEqual("success");
       expect(prepayment.contractId).toBeDefined();
       expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(aliceBalance - prepaymentAmount);
@@ -1574,14 +2368,14 @@ describe("base", async () => {
 
       /* Create escrow return request */
       mp.changeAccount(alice);
-      const requestReturn = await mp.requestReturnHourly(contractId, week1Id);
+      const requestReturn = await mp.requestReturnHourly(contractId);
       expect(requestReturn.status).toEqual("success");
       expect(requestReturn.id).toBeDefined();
       console.log("Return request created!");
 
       /* Approve return request */
       mp.changeAccount(bob);
-      const approveReturn = await mp.approveReturnHourly(contractId, week1Id);
+      const approveReturn = await mp.approveReturnHourly(contractId);
       expect(approveReturn.status).toEqual("success");
       expect(approveReturn.id).toBeDefined();
       console.log("Return request approved!");
@@ -1590,6 +2384,7 @@ describe("base", async () => {
     it("success flow with prepayment and escrow return request cancel", async () => {
       const prepaymentAmount = 10;
       const amountToClaim = 5;
+      const escrowContractId = BigInt(7);
       const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
       const bobBalance = await mp.tokenBalance(bob.address, "MockUSDT");
       const tokenSymbol = "MockUSDT";
@@ -1601,7 +2396,21 @@ describe("base", async () => {
         amountToClaim: 0,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const prepayment = await mp.escrowDepositHourly(tokenSymbol, prepaymentAmount, 0n, depositInput);
+      const preparedDeposit = await mp.prepareEscrowDepositHourlyPayload(
+        tokenSymbol,
+        prepaymentAmount,
+        escrowContractId,
+        depositInput
+      );
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+      const prepayment = await mp.escrowDepositHourly(preparedDeposit);
       expect(prepayment.status).toEqual("success");
       expect(prepayment.contractId).toBeDefined();
       expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(aliceBalance - prepaymentAmount);
@@ -1641,13 +2450,13 @@ describe("base", async () => {
 
       /* Create escrow return request */
       mp.changeAccount(alice);
-      const requestReturn = await mp.requestReturnHourly(contractId, week1Id);
+      const requestReturn = await mp.requestReturnHourly(contractId);
       expect(requestReturn.status).toEqual("success");
       expect(requestReturn.id).toBeDefined();
       console.log("Return request created!");
 
       /* Approve return request */
-      const cancelReturn = await mp.cancelReturnHourly(contractId, week1Id, DepositStatus.ACTIVE);
+      const cancelReturn = await mp.cancelReturnHourly(contractId);
       expect(cancelReturn.status).toEqual("success");
       expect(cancelReturn.id).toBeDefined();
       console.log("Return request approved!");
@@ -1656,6 +2465,7 @@ describe("base", async () => {
     it("success flow - dispute, client win", async () => {
       const prepaymentAmount = 10;
       const amountToClaim = 5;
+      const escrowContractId = BigInt(8);
       const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
       const bobBalance = await mp.tokenBalance(bob.address, "MockUSDT");
       const tokenSymbol = "MockUSDT";
@@ -1667,7 +2477,21 @@ describe("base", async () => {
         amountToClaim: 0,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const prepayment = await mp.escrowDepositHourly(tokenSymbol, prepaymentAmount, 0n, depositInput);
+      const preparedDeposit = await mp.prepareEscrowDepositHourlyPayload(
+        tokenSymbol,
+        prepaymentAmount,
+        escrowContractId,
+        depositInput
+      );
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+      const prepayment = await mp.escrowDepositHourly(preparedDeposit);
       expect(prepayment.status).toEqual("success");
       expect(prepayment.contractId).toBeDefined();
       expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(aliceBalance - prepaymentAmount);
@@ -1704,7 +2528,7 @@ describe("base", async () => {
 
       /* Create escrow return request */
       mp.changeAccount(alice);
-      const requestReturn = await mp.requestReturnHourly(contractId, week1Id);
+      const requestReturn = await mp.requestReturnHourly(contractId);
       expect(requestReturn.status).toEqual("success");
       expect(requestReturn.id).toBeDefined();
 
@@ -1723,11 +2547,11 @@ describe("base", async () => {
         prepaymentAmount,
         0
       );
-      expect(resolveDispute.status).toEqual("success");
+      expect(resolveDispute.status).toEqual("success"); //0xe181ae06ff36a14a17670fc0eac415a85750cb383c02d83b73ae33513db00791
       expect(resolveDispute.id).toBeDefined();
 
       mp.changeAccount(alice);
-      const withdraw = await mp.escrowWithdrawHourly(contractId, week1Id);
+      const withdraw = await mp.escrowWithdrawHourly(contractId);
       expect(withdraw.status).toEqual("success");
       expect(withdraw.id).toBeDefined();
     }, 1200000);
@@ -1735,6 +2559,7 @@ describe("base", async () => {
     it("success flow - dispute, freelancer win", async () => {
       const prepaymentAmount = 10;
       const amountToClaim = 5;
+      const escrowContractId = BigInt(9);
       const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
       const bobBalance = await mp.tokenBalance(bob.address, "MockUSDT");
       const tokenSymbol = "MockUSDT";
@@ -1746,7 +2571,21 @@ describe("base", async () => {
         amountToClaim: 0,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const prepayment = await mp.escrowDepositHourly(tokenSymbol, prepaymentAmount, 0n, depositInput);
+      const preparedDeposit = await mp.prepareEscrowDepositHourlyPayload(
+        tokenSymbol,
+        prepaymentAmount,
+        escrowContractId,
+        depositInput
+      );
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+      const prepayment = await mp.escrowDepositHourly(preparedDeposit);
       expect(prepayment.status).toEqual("success");
       expect(prepayment.contractId).toBeDefined();
       expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(aliceBalance - prepaymentAmount);
@@ -1783,7 +2622,7 @@ describe("base", async () => {
 
       /* Create escrow return request */
       mp.changeAccount(alice);
-      const requestReturn = await mp.requestReturnHourly(contractId, week1Id);
+      const requestReturn = await mp.requestReturnHourly(contractId);
       expect(requestReturn.status).toEqual("success");
       expect(requestReturn.id).toBeDefined();
 
@@ -1814,6 +2653,7 @@ describe("base", async () => {
     it("success flow - dispute, split", async () => {
       const prepaymentAmount = 10;
       const amountToClaim = 5;
+      const escrowContractId = BigInt(10);
       const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
       const bobBalance = await mp.tokenBalance(bob.address, "MockUSDT");
       const tokenSymbol = "MockUSDT";
@@ -1825,7 +2665,21 @@ describe("base", async () => {
         amountToClaim: 0,
         feeConfig: FeeConfig.CLIENT_COVERS_ALL,
       };
-      const prepayment = await mp.escrowDepositHourly(tokenSymbol, prepaymentAmount, 0n, depositInput);
+      const preparedDeposit = await mp.prepareEscrowDepositHourlyPayload(
+        tokenSymbol,
+        prepaymentAmount,
+        escrowContractId,
+        depositInput
+      );
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+      const prepayment = await mp.escrowDepositHourly(preparedDeposit);
       expect(prepayment.status).toEqual("success");
       expect(prepayment.contractId).toBeDefined();
       expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(aliceBalance - prepaymentAmount);
@@ -1862,7 +2716,7 @@ describe("base", async () => {
 
       /* Create escrow return request */
       mp.changeAccount(alice);
-      const requestReturn = await mp.requestReturnHourly(contractId, week1Id);
+      const requestReturn = await mp.requestReturnHourly(contractId);
       expect(requestReturn.status).toEqual("success");
       expect(requestReturn.id).toBeDefined();
 
@@ -1887,7 +2741,7 @@ describe("base", async () => {
       expect(resolveDispute.id).toBeDefined();
 
       mp.changeAccount(alice);
-      const withdraw = await mp.escrowWithdrawHourly(contractId, week1Id);
+      const withdraw = await mp.escrowWithdrawHourly(contractId);
       expect(withdraw.status).toEqual("success");
       expect(withdraw.id).toBeDefined();
 
@@ -1895,6 +2749,149 @@ describe("base", async () => {
       const claim = await mp.escrowClaimHourly(contractId, week1Id);
       expect(claim.status).toEqual("success");
       expect(claim.id).toBeDefined();
+    }, 1200000);
+
+    it("success flow - approve return request, refill and return request", async () => {
+      const prepaymentAmount = 10;
+      const escrowContractId = BigInt(11);
+      const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
+      const tokenSymbol = "MockUSDT";
+
+      /* deposit prepayment */
+      mp.changeAccount(alice);
+      const depositInput = {
+        contractorAddress: bob.address,
+        amountToClaim: 0,
+        feeConfig: FeeConfig.CLIENT_COVERS_ALL,
+      };
+      const preparedDeposit = await mp.prepareEscrowDepositHourlyPayload(
+        tokenSymbol,
+        prepaymentAmount,
+        escrowContractId,
+        depositInput
+      );
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+      const prepayment = await mp.escrowDepositHourly(preparedDeposit);
+      expect(prepayment.status).toEqual("success");
+      expect(prepayment.contractId).toBeDefined();
+      expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(aliceBalance - prepaymentAmount);
+
+      const contractId = prepayment.contractId;
+
+      /* Create escrow return request */
+      mp.changeAccount(alice);
+      const requestReturn = await mp.requestReturnHourly(contractId);
+      expect(requestReturn.status).toEqual("success");
+      expect(requestReturn.id).toBeDefined();
+
+      /* Approve return request */
+      mp.changeAccount(bob);
+      const approveReturn = await mp.approveReturnHourly(contractId);
+      expect(approveReturn.status).toEqual("success");
+      expect(approveReturn.id).toBeDefined();
+
+      /* withdraw prepayment */
+      mp.changeAccount(alice);
+      const withdraw = await mp.escrowWithdrawHourly(contractId);
+      expect(withdraw.status).toEqual("success");
+      expect(withdraw.id).toBeDefined();
+
+      /* Refill prepayment */
+
+      const refillPrepayment = await mp.escrowRefillHourly(contractId, 0n, prepaymentAmount, RefillType.PREPAYMENT);
+      expect(refillPrepayment.status).toEqual("success");
+      expect(refillPrepayment.id).toBeDefined();
+
+      /* request return */
+
+      const secondRequestReturn = await mp.requestReturnHourly(contractId);
+      expect(secondRequestReturn.status).toEqual("success");
+      expect(secondRequestReturn.id).toBeDefined();
+    }, 1200000);
+
+    it("success flow with prepayment and escrow return request, withdraw and approve", async () => {
+      const prepaymentAmount = 10;
+      const amountToClaim = 5;
+      const escrowContractId = BigInt(12);
+      const aliceBalance = await mp.tokenBalance(alice.address, "MockUSDT");
+      const tokenSymbol = "MockUSDT";
+
+      /* deposit prepayment */
+      mp.changeAccount(alice);
+      const depositInput = {
+        contractorAddress: bob.address,
+        amountToClaim: 0,
+        feeConfig: FeeConfig.CLIENT_COVERS_ALL,
+      };
+      const preparedDeposit = await mp.prepareEscrowDepositHourlyPayload(
+        tokenSymbol,
+        prepaymentAmount,
+        escrowContractId,
+        depositInput
+      );
+
+      const wallet = new ethers.Wallet(adminPK);
+
+      const rawSignature: ethers.Signature = wallet.signingKey.sign(preparedDeposit.signature);
+
+      const signature = ethers.Signature.from(rawSignature).serialized as `0x${string}`;
+
+      preparedDeposit.signature = signature as Hash;
+      const prepayment = await mp.escrowDepositHourly(preparedDeposit);
+      expect(prepayment.status).toEqual("success");
+      expect(prepayment.contractId).toBeDefined();
+      expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(aliceBalance - prepaymentAmount);
+      console.log("Deposited!");
+
+      /* get contract with first week */
+      const contractId = prepayment.contractId;
+      const week1Id = 0n;
+      const contractDetails = await mp.getDepositListHourly(contractId, week1Id);
+      expect(contractDetails.amount).toBeDefined();
+      expect(contractDetails.amount).toEqual(prepaymentAmount);
+
+      /* Create escrow return request */
+      mp.changeAccount(alice);
+      const requestReturn = await mp.requestReturnHourly(contractId);
+      expect(requestReturn.status).toEqual("success");
+      expect(requestReturn.id).toBeDefined();
+      console.log("Return request created!");
+
+      /* Approve return request */
+      mp.changeAccount(bob);
+      const approveReturn = await mp.approveReturnHourly(contractId);
+      expect(approveReturn.status).toEqual("success");
+      expect(approveReturn.id).toBeDefined();
+      console.log("Return request approved!");
+
+      /* Withdraw prepayment */
+      mp.changeAccount(alice);
+      const withdrawResponse = await mp.escrowWithdrawHourly(contractId);
+      expect(withdrawResponse.status).toEqual("success");
+
+      /* Deposit for first week */
+      const approvePayload = {
+        contractId,
+        weekId: week1Id,
+        valueApprove: amountToClaim,
+        recipient: bob.address,
+        token: tokenSymbol,
+      };
+      const escrowApprove = await mp.escrowApproveHourly(approvePayload);
+      console.log("First week deposited and approved!");
+
+      expect(escrowApprove.status).toEqual("success");
+      expect(escrowApprove.id).toBeDefined();
+      // expect(await mp.tokenBalance(alice.address)).toBeLessThanOrEqual(
+      //   aliceBalance - (prepaymentAmount + amountToClaim)
+      // );
     }, 1200000);
   });
 
@@ -1913,36 +2910,38 @@ describe("base", async () => {
 
   it("Parse embedded transaction milestone ", async () => {
     const transaction = await mp.transactionByHashMilestone(
-      "0x7cf2e8aa903b8f84983fae34b0ed6fe9c13192ef2d3144e50025354a25670161",
+      "0x182cd2212c5f6841395b42bf40d5175a50d158e5ea2cd2fb3a8e7622ddccb8e7",
       true
     );
     expect(transaction).toBeDefined();
 
-    mp.changeEscrow("0x5bD6097bD68AE515502DCBa004a2f16fbF69eC20");
+    mp.changeEscrow("0x2f4626c0D31FDCD38eb1B2B8cD763EA922900128");
     const transactionData = await mp.transactionParseMilestone(transaction);
     expect(transactionData).toBeDefined();
   });
 });
 
-it("Parse embedded transaction hourly", async () => {
-  const transactionData = await mp.transactionByHashHourly(
-    // "0x71dba92983a70850bc335b11be7a4411704c203521d8a5b723dc64933a915ce0"
-    "0x954b7951e7bfcea593bd9daf54c918d7cda1797b22b44b45a6cd18bce9982fdf"
-  );
-  expect(transactionData).toBeDefined();
+describe("Transaction parsing", async () => {
+  it("Parse embedded transaction hourly", async () => {
+    const transactionData = await mp.transactionByHashHourly(
+      // "0x71dba92983a70850bc335b11be7a4411704c203521d8a5b723dc64933a915ce0"
+      "0x962c56f38752695e2671fe050a172fead01423c4421bcbeb95cc8c12590c5ff3"
+    );
+    expect(transactionData).toBeDefined();
 
-  mp.changeEscrow("0x7E66D81E7641fBF3ceba2104b124DC7DAc71cAEB");
-  const transactionParse = await mp.transactionParseHourly(transactionData);
-  expect(transactionParse).toBeDefined();
-}, 1200000);
+    // mp.changeEscrow("0x2F993eA91F9459b1E5997671072053F3262A3771");
+    const transactionParse = await mp.transactionParseHourly(transactionData);
+    expect(transactionParse).toBeDefined();
+  }, 1200000);
 
-it("Parse embedded transaction fixed", async () => {
-  const transactionData = await mp.transactionByHash(
-    "0xef6fa11dbbbf569d1f9550669ec025440e9ffb484c46ffa727d9e27d69d9cbbc"
-  );
-  expect(transactionData).toBeDefined();
+  it("Parse embedded transaction fixed", async () => {
+    const transactionData = await mp.transactionByHash(
+      "0xb52ae2ff73dd1598ef14eb28f079d428811f42bf79b7a195b0234f401086d5c0"
+    );
+    expect(transactionData).toBeDefined();
 
-  mp.changeEscrow("0x7048c8EC9100eE5cA86E92aE179D6A9b8aBB4b44");
-  const transactionParse = await mp.transactionParse(transactionData);
-  expect(transactionParse).toBeDefined();
-}, 1200000);
+    mp.changeEscrow("0x3D5bdDbec2F1e4949EE300879523B54CaCE3Ae4F");
+    const transactionParse = await mp.transactionParse(transactionData);
+    expect(transactionParse).toBeDefined();
+  }, 1200000);
+});

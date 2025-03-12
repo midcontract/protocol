@@ -272,6 +272,7 @@ export class MidcontractProtocol {
   public feeManagerAbi: [];
   public factoryAbi: [];
   public environment: Environment;
+  private transactionStorage: Map<string, number> = new Map();
 
   constructor(
     chain: Chain,
@@ -937,6 +938,11 @@ export class MidcontractProtocol {
   }
 
   async escrowDepositHourly(input: PreparedEscrowHourlyDeposit, waitReceipt = true): Promise<DepositResponse> {
+    const lastDepositTime = this.transactionStorage.get("lastDepositTimestamp");
+
+    if (lastDepositTime && Date.now() - lastDepositTime < 30000) {
+      throw new Error("You have recently submitted a deposit. Please wait before making another.");
+    }
     try {
       const data = await this.public.simulateContract({
         address: this.escrow,
@@ -946,7 +952,9 @@ export class MidcontractProtocol {
         functionName: "deposit",
       });
       const hash = await this.send({ ...data.request });
+      this.transactionStorage.set("lastDepositTimestamp", Date.now());
       const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      this.transactionStorage.delete("lastDepositTimestamp");
       return {
         id: hash,
         status: receipt ? receipt.status : "pending",

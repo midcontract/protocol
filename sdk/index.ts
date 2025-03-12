@@ -867,6 +867,12 @@ export class MidcontractProtocol {
   }
 
   async escrowMilestoneDeposit(input: PreparedEscrowMilestoneDeposit, waitReceipt = true): Promise<DepositResponse> {
+    const lastDepositTime = this.transactionStorage.get("lastMilestoneDepositTimestamp");
+
+    if (lastDepositTime && Date.now() - lastDepositTime < 30000) {
+      throw new Error("You have recently submitted a deposit. Please wait before making another.");
+    }
+
     try {
       const data = await this.public.simulateContract({
         address: this.escrow,
@@ -876,7 +882,9 @@ export class MidcontractProtocol {
         functionName: "deposit",
       });
       const hash = await this.send({ ...data.request });
+      this.transactionStorage.set("lastMilestoneDepositTimestamp", Date.now());
       const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      this.transactionStorage.delete("lastMilestoneDepositTimestamp");
       return {
         id: hash,
         status: receipt ? receipt.status : "pending",
@@ -938,11 +946,13 @@ export class MidcontractProtocol {
   }
 
   async escrowDepositHourly(input: PreparedEscrowHourlyDeposit, waitReceipt = true): Promise<DepositResponse> {
-    const lastDepositTime = this.transactionStorage.get("lastDepositTimestamp");
+    const lastDepositTime = this.transactionStorage.get("lastHourlyDepositTimestamp");
+    console.log("Last hourly deposit time got");
 
     if (lastDepositTime && Date.now() - lastDepositTime < 30000) {
       throw new Error("You have recently submitted a deposit. Please wait before making another.");
     }
+    console.log("Last hourly deposit time checked");
     try {
       const data = await this.public.simulateContract({
         address: this.escrow,
@@ -952,9 +962,11 @@ export class MidcontractProtocol {
         functionName: "deposit",
       });
       const hash = await this.send({ ...data.request });
-      this.transactionStorage.set("lastDepositTimestamp", Date.now());
+      this.transactionStorage.set("lastHourlyDepositTimestamp", Date.now());
+      console.log("Last hourly deposit time set");
       const receipt = await this.getTransactionReceipt(hash, waitReceipt);
-      this.transactionStorage.delete("lastDepositTimestamp");
+      this.transactionStorage.delete("lastHourlyDepositTimestamp");
+      console.log("Last hourly deposit time deleted");
       return {
         id: hash,
         status: receipt ? receipt.status : "pending",

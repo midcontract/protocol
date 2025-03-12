@@ -1264,6 +1264,13 @@ export class MidcontractProtocol {
   }
 
   async escrowApproveHourly(input: ApproveInputHourly, waitReceipt = true): Promise<TransactionId> {
+    const lastDepositTime = this.transactionStorage.get("lastHourlyDepositTimestamp");
+    console.log("Last hourly deposit time got ->", lastDepositTime);
+
+    if (lastDepositTime && Date.now() - lastDepositTime < 30000) {
+      throw new Error("You have recently submitted a deposit. Please wait before making another.");
+    }
+    console.log("Last hourly deposit time checked");
     input.token = input.token || "MockUSDT";
     input.valueApprove = input.valueApprove || 0;
     const account = this.account;
@@ -1289,7 +1296,11 @@ export class MidcontractProtocol {
         functionName: "approve",
       });
       const hash = await this.send(request);
+      this.transactionStorage.set("lastHourlyDepositTimestamp", Date.now());
+      console.log("Last hourly deposit time set");
       const receipt = await this.getTransactionReceipt(hash, waitReceipt);
+      this.transactionStorage.delete("lastHourlyDepositTimestamp");
+      console.log("Last hourly deposit time deleted");
       return {
         id: hash,
         status: receipt ? receipt.status : "pending",

@@ -868,10 +868,13 @@ export class MidcontractProtocol {
 
   async escrowMilestoneDeposit(input: PreparedEscrowMilestoneDeposit, waitReceipt = true): Promise<DepositResponse> {
     const lastDepositTime = this.transactionStorage.get("lastMilestoneDepositTimestamp");
+    console.log("lastMilestoneDepositTimestamp got -> ", lastDepositTime);
 
     if (lastDepositTime && Date.now() - lastDepositTime < 30000) {
       throw new Error("You have recently submitted a deposit. Please wait before making another.");
     }
+
+    console.log("lastMilestoneDepositTimestamp checked -> ", lastDepositTime);
 
     try {
       const data = await this.public.simulateContract({
@@ -882,9 +885,12 @@ export class MidcontractProtocol {
         functionName: "deposit",
       });
       const hash = await this.send({ ...data.request });
-      this.transactionStorage.set("lastMilestoneDepositTimestamp", Date.now());
+      const dateNow = Date.now();
+      this.transactionStorage.set("lastMilestoneDepositTimestamp", dateNow);
+      console.log("lastMilestoneDepositTimestamp set -> ", dateNow);
       const receipt = await this.getTransactionReceipt(hash, waitReceipt);
       this.transactionStorage.delete("lastMilestoneDepositTimestamp");
+      console.log("lastMilestoneDepositTimestamp removed -> ");
       return {
         id: hash,
         status: receipt ? receipt.status : "pending",

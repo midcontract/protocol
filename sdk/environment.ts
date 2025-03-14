@@ -121,8 +121,8 @@ export const environmentList: EnvironmentList = {
     80_002: {
       chainName: ChainNameEnum.PolygonAmoy,
       escrow: {
-        ESCROW_FIX_PRICE: "0x8F8D39C49B46871A5A16dcEd83a1465e1aE3CB3e",
-        ESCROW_MILESTONE: "0x5a6e90085a5DAb69379d56cEAB12F3CD8443515D",
+        ESCROW_FIX_PRICE: "0x8c7F5312f4c5993e5D3766C2E8d0a0A1c455290B",
+        ESCROW_MILESTONE: "0xEb9DD15Cc9B33c2D7747bc2500c92d36381E7003",
         ESCROW_HOURLY: "0x4B92D1B0207210f66352615a57Ed11915BBeA0CE",
         FACTORY: "0xE1a67dbA1FB4207c4E5dbB6C0bA9832290a4F98F",
         REGISTRY: "0x5Bb26eF73D0Ce2a1060bEd3f42Ec50F247dFf61B",
@@ -155,7 +155,44 @@ export const environmentList: EnvironmentList = {
       },
     },
   },
-  prod: {},
+  prod: {
+    80_002: {
+      chainName: ChainNameEnum.PolygonAmoy,
+      escrow: {
+        ESCROW_FIX_PRICE: "0x8c7F5312f4c5993e5D3766C2E8d0a0A1c455290B",
+        ESCROW_MILESTONE: "0xEb9DD15Cc9B33c2D7747bc2500c92d36381E7003",
+        ESCROW_HOURLY: "0x4B92D1B0207210f66352615a57Ed11915BBeA0CE",
+        FACTORY: "0xE1a67dbA1FB4207c4E5dbB6C0bA9832290a4F98F",
+        REGISTRY: "0x5Bb26eF73D0Ce2a1060bEd3f42Ec50F247dFf61B",
+        FEE_MANAGER: "0x661855f5f3f6E4536b535d6C325ebb399889556c",
+        ADMIN_MANAGER: "0x501cbBCa63ea1f0cc9a490A33B60f08eCD2DAB27",
+        ADMIN: "0x3eAb900aC1E0de25F465c63717cD1044fF69243C",
+        MOCK_PAYMENT_TOKEN: "0xD19AC10fE911d913Eb0B731925d3a69c80Bd6643",
+        FIXED_PRICE_ABI: fixedPriceAbiBeta,
+        MILESTONE_ABI: milestoneAbiBeta,
+        HOURLY_ABI: hourlyAbiTest,
+        FACTORY_ABI: factoryAbiBeta,
+        FEE_MANAGER_ABI: feeManagerAbiTest,
+      },
+      tokenList: {
+        MockUSDT: {
+          symbol: "MockUSDT",
+          address: "0xD19AC10fE911d913Eb0B731925d3a69c80Bd6643",
+          decimals: 6,
+        },
+        MockDAI: {
+          symbol: "MockDAI",
+          address: "0xA0A8Ee7bF502EC4Eb5C670fE5c63092950dbB718",
+          decimals: 18,
+        },
+        MockUSDC: {
+          symbol: "MockUSDC",
+          address: "0x2AFf4E62eC8A5798798a481258DE66d88fB6bbCb",
+          decimals: 6,
+        },
+      },
+    },
+  },
 };
 
 export function environmentByName(name: Environment): ChainList {

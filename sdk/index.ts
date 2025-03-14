@@ -40,7 +40,7 @@ import {
   iterateTokenList,
   type SymbolToken,
 } from "@/environment";
-import { fixedPriceAbiBeta, fixedPriceAbiTest } from "@/abi/EscrowFixedPrice";
+import { fixedPriceAbiBeta, fixedPriceAbiProd, fixedPriceAbiTest } from "@/abi/EscrowFixedPrice";
 import {
   CoreMidcontractProtocolError,
   NotEnoughError,
@@ -55,10 +55,10 @@ import { blastSepolia } from "@/chain/blastSepolia";
 import { type DecodedInput, parseHourlyInput, parseInput, parseMilestoneInput, type TransactionInput } from "@/parse";
 import { FeeManager } from "@/feeManager/feeManager";
 import { Deposit, DepositStatus, DisputeWinner, type FeeConfig, RefillType } from "@/Deposit";
-import { factoryAbiBeta, factoryAbiTest } from "@/abi/EscrowFactory";
-import { milestoneAbiBeta, milestoneAbiTest } from "@/abi/EscrowMilestone";
-import { hourlyAbiBeta, hourlyAbiTest } from "@/abi/EscrowHourly";
-import { feeManagerAbiBeta, feeManagerAbiTest } from "@/abi/FeeManager";
+import { factoryAbiBeta, factoryAbiProd, factoryAbiTest } from "@/abi/EscrowFactory";
+import { milestoneAbiBeta, milestoneAbiProd, milestoneAbiTest } from "@/abi/EscrowMilestone";
+import { hourlyAbiBeta, hourlyAbiProd, hourlyAbiTest } from "@/abi/EscrowHourly";
+import { feeManagerAbiBeta, feeManagerAbiProd, feeManagerAbiTest } from "@/abi/FeeManager";
 import { embeddedAbi, lightAccountAbi } from "@/abi/Embedded";
 
 export interface DepositAmount {
@@ -331,7 +331,6 @@ export class MidcontractProtocol {
         };
         break;
       case "beta2":
-      default:
         chain = polygonAmoy;
         abiList = {
           fixedPriceAbi: fixedPriceAbiBeta,
@@ -340,6 +339,17 @@ export class MidcontractProtocol {
           feeManagerAbi: feeManagerAbiBeta,
           factoryAbi: factoryAbiBeta,
         };
+        break;
+      case "prod":
+        chain = polygonAmoy;
+        abiList = {
+          fixedPriceAbi: fixedPriceAbiProd,
+          milestoneAbi: milestoneAbiProd,
+          hourlyAbi: hourlyAbiProd,
+          feeManagerAbi: feeManagerAbiProd,
+          factoryAbi: factoryAbiProd,
+        };
+        break;
     }
 
     const transport = url ? http(url) : http();
